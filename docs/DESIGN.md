@@ -251,7 +251,7 @@ Tre pagine e tre pannelli dal basso, con l'aspetto e i comportamenti della demo.
 | Pannello Profilo | Avatar, nome modificabile, nome utente, switch notifiche, Installa l'app | Esci |
 
 - Riga in home: numero del giorno grande, giorno abbreviato, titolo, data relativa o estesa, barra di avanzamento, stato (N da prendere, Fatto, Vuota) e avatar di chi ha aggiunto elementi.
-- Elemento: cerchio di spunta, nome con pillola della quantità, sotto avatar e aggiunto da te o da {nome} (preso da, se spuntato), pulsanti modifica (matita) ed elimina. Il tocco sulla riga spunta; tenerla premuta mezzo secondo apre la modifica, con una vibrazione breve, e un dito che si sposta di più di 10 px la annulla perché sta scorrendo. Da prendere in ordine di `added_at`, quindi un elemento rimesso dal carrello va in fondo; Nel carrello per `checked_at` decrescente, in un contenitore solo bordato.
+- Elemento: cerchio di spunta, nome con pillola della quantità, sotto avatar e aggiunto da te o da {nome} (preso da, se spuntato), pulsanti modifica (matita) ed elimina. Il tocco sulla riga spunta; tenerla premuta mezzo secondo apre la modifica: dopo 100 ms la riga si riempie di `--accent-soft` da sinistra, è piena quando si apre il pannello e il telefono vibra 30 ms. Un dito che si sposta di più di 10 px la annulla perché sta scorrendo. Da prendere in ordine di `added_at`, quindi un elemento rimesso dal carrello va in fondo; Nel carrello per `checked_at` decrescente, in un contenitore solo bordato.
 - Barra di inserimento fissa in basso: fino a 7 chip di suggerimento, il campo Aggiungi, es. 2 latte e il pulsante +. Dopo l'invio il campo si svuota e tiene il focus, così la tastiera resta aperta.
 - Suggerimenti, in quest'ordine, esclusi quelli già da prendere: Latte, Pane, Uova, Acqua, Frutta, Caffè, Pasta, Insalata, Burro, Carta igienica, Pomodori, Yogurt.
 
@@ -301,7 +301,7 @@ Azzurro come colore principale, giallo solo per la seconda persona e per evidenz
 - Tipografia: Bricolage Grotesque 600 e 800 per titoli, numeri dei giorni e avatar; Atkinson Hyperlegible 400 e 700 per tutto il resto. Base 17 px, nomi degli elementi 18 px, numero del pannello `clamp(100px, 32vw, 136px)` con interlinea 0.76.
 - Misure: colonna larga al massimo 480 px con margini di 18 px. Raggi: 28 pannelli, 22 gruppi, 18 campo e pulsante +, 15 pulsanti, pillole tonde. Target di tocco minimo 44 px; campo e pulsante + alti 56 px, Nuova lista 58 px.
 - Accessibilità: focus visibile da 3 px in `--accent-text`, `aria-pressed` sugli elementi, campi con testo da almeno 16 px, `prefers-reduced-motion` che azzera le animazioni, testo con contrasto almeno 4,5:1.
-- Movimento solo in risposta alle azioni: pannelli 320 ms, spunta 260 ms, evidenziazione 1,5 s.
+- Movimento solo in risposta alle azioni: pannelli 320 ms, spunta 260 ms, riempimento della pressione lunga 400 ms, evidenziazione 1,5 s.
 
 ## Testi dell'interfaccia
 

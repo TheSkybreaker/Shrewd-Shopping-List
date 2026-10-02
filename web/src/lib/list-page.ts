@@ -33,6 +33,8 @@ export function listPage() {
     editingId: '',
     editName: '',
     editQty: '',
+    // The row under a finger that may become a long press.
+    pressingId: '',
     // Items in the middle of the check animation, before they change section.
     checking: {} as Record<string, 'on' | 'off'>,
 
@@ -118,6 +120,7 @@ export function listPage() {
         'is-checking': this.checking[item.id] === 'on',
         'is-unchecking': this.checking[item.id] === 'off',
         'is-fresh': items().fresh[item.id] === true,
+        'is-pressing': this.pressingId === item.id,
       };
     },
 
@@ -144,10 +147,13 @@ export function listPage() {
       longPressed = false;
       if (event.button !== 0 || !session().online) return;
       pressOrigin = { x: event.clientX, y: event.clientY };
+      this.pressingId = item.id;
       pressTimer = window.setTimeout(() => {
         longPressed = true;
         pressOrigin = null;
-        navigator.vibrate?.(15);
+        this.pressingId = '';
+        // Shorter pulses are too weak to feel on many phones.
+        navigator.vibrate?.(30);
         this.openEdit(item);
       }, LONG_PRESS_MS);
     },
@@ -161,6 +167,7 @@ export function listPage() {
     pressEnd() {
       clearTimeout(pressTimer);
       pressOrigin = null;
+      this.pressingId = '';
     },
 
     remove(item: Item) {

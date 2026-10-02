@@ -100,6 +100,10 @@ input { font: inherit; color: inherit }
 .items { list-style: none; margin: 0; padding: 0; background: var(--paper); border-radius: 22px; box-shadow: var(--shadow); overflow: hidden }
 .item { display: flex; align-items: center; scroll-margin-bottom: 230px; scroll-margin-top: 90px }
 .item + .item { border-top: 1px solid var(--line) }
+/* Long press: the row fills while the finger stays down and is full when the edit sheet opens,
+   after LONG_PRESS_MS in list-page.ts. The delay keeps taps and the start of a scroll plain. */
+.item { background-image: linear-gradient(var(--accent-soft), var(--accent-soft)); background-repeat: no-repeat; background-size: 0 100% }
+.item.is-pressing { background-size: 100% 100%; transition: background-size .4s linear .1s }
 .item-toggle { flex: 1; min-width: 0; display: flex; align-items: center; gap: 14px; padding: 14px 6px 14px 16px; min-height: 66px; text-align: left; -webkit-touch-callout: none; user-select: none }
 .check { width: 28px; height: 28px; flex: none; border-radius: 50%; border: 2.5px solid var(--accent); display: grid; place-items: center; color: transparent; transition: background .2s, border-color .2s, color .2s, transform .2s }
 .check svg { width: 17px; height: 17px; stroke-width: 3.2 }
