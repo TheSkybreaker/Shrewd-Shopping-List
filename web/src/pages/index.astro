@@ -98,7 +98,7 @@ import Toast from '../components/Toast.astro';
         <Avatar user="$store.session.me?.id" size="xl" />
         <div>
           <h2 tabindex="-1" autofocus x-text="$store.session.me?.name"></h2>
-          <p x-text="$store.session.me?.email"></p>
+          <p x-text="$store.session.me?.username"></p>
         </div>
       </div>
       <div class="setting" x-show="$store.session.notifications !== 'unsupported'">

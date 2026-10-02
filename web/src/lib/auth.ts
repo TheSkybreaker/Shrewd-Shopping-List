@@ -45,7 +45,7 @@ export async function logout() {
 
 export function loginPage() {
   return {
-    email: '',
+    username: '',
     password: '',
     error: '',
     busy: false,
@@ -54,10 +54,11 @@ export function loginPage() {
       this.busy = true;
       this.error = '';
       try {
-        await pb.collection('users').authWithPassword(this.email.trim(), this.password);
+        // Usernames are lowercase, while phone keyboards may capitalize the first letter.
+        await pb.collection('users').authWithPassword(this.username.trim().toLowerCase(), this.password);
         redirect('/');
       } catch {
-        this.error = 'Email o password non corretti.';
+        this.error = 'Nome utente o password non corretti.';
         this.busy = false;
       }
     },

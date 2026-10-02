@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -13,13 +14,14 @@ import (
 
 // fixture is a data dir with the Spesa schema, two users and a list with one item added by userA.
 type fixture struct {
-	dataDir string
-	userA   *core.Record
-	userB   *core.Record
-	tokenA  string
-	tokenB  string
-	list    *core.Record
-	item    *core.Record
+	dataDir  string
+	password string // of both users
+	userA    *core.Record
+	userB    *core.Record
+	tokenA   string
+	tokenB   string
+	list     *core.Record
+	item     *core.Record
 }
 
 func newFixture(t *testing.T) *fixture {
@@ -40,14 +42,15 @@ func newFixture(t *testing.T) *fixture {
 		return record
 	}
 
-	newUser := func(email string, name string, color string) *core.Record {
+	password := security.RandomString(20)
+	newUser := func(username string, name string, color string) *core.Record {
 		users, err := app.FindCollectionByNameOrId("users")
 		if err != nil {
 			t.Fatal(err)
 		}
 		user := core.NewRecord(users)
-		user.SetEmail(email)
-		user.SetPassword(security.RandomString(20))
+		user.Set("username", username)
+		user.SetPassword(password)
 		user.Set("name", name)
 		user.Set("color", color)
 		return save(user)
@@ -63,9 +66,9 @@ func newFixture(t *testing.T) *fixture {
 		return save(record)
 	}
 
-	f := &fixture{dataDir: app.DataDir()}
-	f.userA = newUser("a@example.com", "User A", "sky")
-	f.userB = newUser("b@example.com", "User B", "sun")
+	f := &fixture{dataDir: app.DataDir(), password: password}
+	f.userA = newUser("usera", "User A", "sky")
+	f.userB = newUser("userb", "User B", "sun")
 	f.list = newRecord("lists", map[string]any{"date": "2026-10-03", "title": "Spesa", "created_by": f.userA.Id})
 	f.item = newRecord("items", map[string]any{"list": f.list.Id, "name": "Pane", "added_by": f.userA.Id})
 
@@ -122,6 +125,32 @@ func TestGuestReadsNothing(t *testing.T) {
 			Headers:         f.authA(),
 			ExpectedStatus:  200,
 			ExpectedContent: []string{`"totalItems":1`, `"id":"` + f.list.Id + `"`},
+		},
+	})
+}
+
+func TestSignInWithUsername(t *testing.T) {
+	f := newFixture(t)
+	credentials := func(identity string, password string) io.Reader {
+		return strings.NewReader(`{"identity":"` + identity + `","password":"` + password + `"}`)
+	}
+
+	f.run(t, []tests.ApiScenario{
+		{
+			Name:            "username and password",
+			Method:          http.MethodPost,
+			URL:             "/api/collections/users/auth-with-password",
+			Body:            credentials("usera", f.password),
+			ExpectedStatus:  200,
+			ExpectedContent: []string{`"token":"`, `"username":"usera"`},
+		},
+		{
+			Name:            "wrong password",
+			Method:          http.MethodPost,
+			URL:             "/api/collections/users/auth-with-password",
+			Body:            credentials("usera", f.password+"x"),
+			ExpectedStatus:  400,
+			ExpectedContent: []string{`"data":{}`},
 		},
 	})
 }

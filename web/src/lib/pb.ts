@@ -3,7 +3,7 @@ import PocketBase from 'pocketbase';
 export interface User {
   id: string;
   name: string;
-  email: string;
+  username: string;
   color: 'sky' | 'sun' | '';
 }
 

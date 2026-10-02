@@ -37,8 +37,9 @@ func loadConfig() (config, error) {
 	return config{
 		vapidPublicKey:  os.Getenv("VAPID_PUBLIC_KEY"),
 		vapidPrivateKey: os.Getenv("VAPID_PRIVATE_KEY"),
-		vapidSubject:    os.Getenv("VAPID_SUBJECT"),
-		dev:             os.Getenv("DEV") == "1",
+		// webpush-go adds "mailto:" to anything that is not an https URL.
+		vapidSubject: strings.TrimPrefix(os.Getenv("VAPID_SUBJECT"), "mailto:"),
+		dev:          os.Getenv("DEV") == "1",
 	}, nil
 }
 

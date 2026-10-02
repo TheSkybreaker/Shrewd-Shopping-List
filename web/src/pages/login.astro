@@ -10,7 +10,7 @@ import Page from '../components/Page.astro';
       <h1>Spesa</h1>
       <p class="login-sub">La lista della spesa di casa, aggiornata in tempo reale su tutti e due i telefoni.</p>
       <form @submit.prevent="submit()">
-        <label class="field">Email<input type="email" x-model="email" autocomplete="username" required /></label>
+        <label class="field">Nome utente<input x-model="username" autocomplete="username" autocapitalize="none" spellcheck="false" required /></label>
         <label class="field">Password<input type="password" x-model="password" autocomplete="current-password" required /></label>
         <button class="btn primary wide" type="submit" :disabled="busy">Entra</button>
         <p class="login-error" role="alert" x-show="error" x-text="error"></p>
