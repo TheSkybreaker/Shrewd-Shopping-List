@@ -165,7 +165,7 @@ func TestCreatingAnItemPushesToThePartner(t *testing.T) {
 
 func TestPushRoutes(t *testing.T) {
 	f := newFixture(t)
-	endpoint := "https://push.example.com/shared-browser"
+	endpoint := "https://fcm.googleapis.com/fcm/send/shared-browser"
 	subscribeBody := `{"endpoint":"` + endpoint + `","keys":{"p256dh":"key","auth":"secret"}}`
 
 	pushApp := func(dev bool, setup func(testing.TB, *tests.TestApp)) func(testing.TB) *tests.TestApp {
@@ -214,7 +214,12 @@ func TestPushRoutes(t *testing.T) {
 		},
 		{
 			Name: "an endpoint that is not HTTPS is refused", Method: http.MethodPost, URL: "/api/push/subscribe", Headers: f.authA(),
-			Body: strings.NewReader(`{"endpoint":"http://127.0.0.1:8090/api","keys":{"p256dh":"key","auth":"secret"}}`), TestAppFactory: pushApp(false, nil),
+			Body: strings.NewReader(`{"endpoint":"http://fcm.googleapis.com/fcm/send/x","keys":{"p256dh":"key","auth":"secret"}}`), TestAppFactory: pushApp(false, nil),
+			ExpectedStatus: 400, ExpectedContent: []string{`"data":{}`},
+		},
+		{
+			Name: "an endpoint outside the push services is refused", Method: http.MethodPost, URL: "/api/push/subscribe", Headers: f.authA(),
+			Body: strings.NewReader(`{"endpoint":"https://internal.example.com/admin","keys":{"p256dh":"key","auth":"secret"}}`), TestAppFactory: pushApp(false, nil),
 			ExpectedStatus: 400, ExpectedContent: []string{`"data":{}`},
 		},
 		{
@@ -240,5 +245,26 @@ func TestPushRoutes(t *testing.T) {
 	}
 	for _, scenario := range scenarios {
 		scenario.Test(t)
+	}
+}
+
+func TestIsPushServiceEndpoint(t *testing.T) {
+	for endpoint, want := range map[string]bool{
+		"https://fcm.googleapis.com/fcm/send/abc":                true,
+		"https://updates.push.services.mozilla.com/wpush/v2/abc": true,
+		"https://wns2-par02p.notify.windows.com/w/?token=abc":    true,
+		"https://web.push.apple.com/abc":                         true,
+		"https://fcm.googleapis.com:443/fcm/send/abc":            true,
+		"http://fcm.googleapis.com/fcm/send/abc":                 false,
+		"https://fcm.googleapis.com:8443/fcm/send/abc":           false,
+		"https://fcm.googleapis.com.example.com/abc":             false,
+		"https://evilfcm.googleapis.com.attacker.example/abc":    false,
+		"https://127.0.0.1/abc":                                  false,
+		"https://localhost/abc":                                  false,
+		"not a url":                                              false,
+	} {
+		if got := isPushServiceEndpoint(endpoint); got != want {
+			t.Errorf("isPushServiceEndpoint(%q) = %v, want %v", endpoint, got, want)
+		}
 	}
 }

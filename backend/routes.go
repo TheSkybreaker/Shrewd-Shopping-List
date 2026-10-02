@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -10,6 +11,24 @@ import (
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 )
+
+// The push services of Chrome and Android, Firefox, Edge and Safari. The server posts to the
+// subscription endpoint, so any other host would let a signed-in user make it call arbitrary URLs.
+var pushServiceHosts = []string{"fcm.googleapis.com", "push.services.mozilla.com", "notify.windows.com", "push.apple.com"}
+
+func isPushServiceEndpoint(endpoint string) bool {
+	parsed, err := url.Parse(endpoint)
+	if err != nil || parsed.Scheme != "https" || (parsed.Port() != "" && parsed.Port() != "443") {
+		return false
+	}
+	host := parsed.Hostname()
+	for _, allowed := range pushServiceHosts {
+		if host == allowed || strings.HasSuffix(host, "."+allowed) {
+			return true
+		}
+	}
+	return false
+}
 
 // subscriptionBody is PushSubscription.toJSON() from the browser.
 type subscriptionBody struct {
@@ -41,8 +60,7 @@ func (p *pusher) subscribe(e *core.RequestEvent) error {
 	if err := e.BindBody(&body); err != nil {
 		return e.BadRequestError("Invalid subscription.", err)
 	}
-	// The server posts to this URL, so it must be a push service over HTTPS.
-	if !strings.HasPrefix(body.Endpoint, "https://") || body.Keys.P256dh == "" || body.Keys.Auth == "" {
+	if !isPushServiceEndpoint(body.Endpoint) || body.Keys.P256dh == "" || body.Keys.Auth == "" {
 		return e.BadRequestError("Invalid subscription.", nil)
 	}
 
