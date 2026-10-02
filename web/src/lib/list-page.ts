@@ -1,4 +1,4 @@
-import { clearCart, deleteItem, deleteList, toggleItem } from './actions';
+import { clearCart, deleteItem, deleteList, editItem, toggleItem } from './actions';
 import { isRedirecting } from './auth';
 import { restoreList, saveList } from './cache';
 import { fromIsoDate, fullDateLabel, monthLabel, relativeDay, weekdayLong } from './dates';
@@ -11,18 +11,28 @@ import { loadList, loadUsers, onReconnect, subscribeList } from './realtime';
 import { items, lists, session } from './stores';
 
 const CHECK_ANIMATION_MS = 260;
+const LONG_PRESS_MS = 500;
+// A finger that moves further than this is scrolling, not pressing.
+const LONG_PRESS_SLOP_PX = 10;
 
 const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 export function listPage() {
   const params = new URLSearchParams(location.search);
+  let pressTimer = 0;
+  let pressOrigin: { x: number; y: number } | null = null;
+  // The click that ends a long press must not check the item.
+  let longPressed = false;
 
   return {
     listId: params.get('id') ?? '',
     focusComposer: params.has('nuova'),
     loaded: false,
-    sheet: null as 'menu' | null,
+    sheet: null as 'menu' | 'edit' | null,
     confirmDelete: false,
+    editingId: '',
+    editName: '',
+    editQty: '',
     // Items in the middle of the check animation, before they change section.
     checking: {} as Record<string, 'on' | 'off'>,
 
@@ -122,8 +132,50 @@ export function listPage() {
       }, CHECK_ANIMATION_MS);
     },
 
+    tap(item: Item) {
+      if (longPressed) {
+        longPressed = false;
+        return;
+      }
+      this.toggle(item);
+    },
+
+    pressStart(item: Item, event: PointerEvent) {
+      longPressed = false;
+      if (event.button !== 0 || !session().online) return;
+      pressOrigin = { x: event.clientX, y: event.clientY };
+      pressTimer = window.setTimeout(() => {
+        longPressed = true;
+        pressOrigin = null;
+        navigator.vibrate?.(15);
+        this.openEdit(item);
+      }, LONG_PRESS_MS);
+    },
+
+    pressMove(event: PointerEvent) {
+      if (pressOrigin && Math.hypot(event.clientX - pressOrigin.x, event.clientY - pressOrigin.y) > LONG_PRESS_SLOP_PX) {
+        this.pressEnd();
+      }
+    },
+
+    pressEnd() {
+      clearTimeout(pressTimer);
+      pressOrigin = null;
+    },
+
     remove(item: Item) {
       deleteItem(item);
+    },
+
+    openEdit(item: Item) {
+      this.editingId = item.id;
+      this.editName = item.name;
+      this.editQty = item.qty;
+      this.sheet = 'edit';
+    },
+
+    saveEdit() {
+      if (editItem(this.editingId, this.editName, this.editQty)) this.sheet = null;
     },
 
     openMenu() {

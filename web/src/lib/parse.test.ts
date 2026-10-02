@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseEntry, quantityLabel } from './parse';
+import { editChanges, parseEntry, quantityLabel } from './parse';
 
 describe('parseEntry', () => {
   it.each([
@@ -45,5 +45,25 @@ describe('quantityLabel', () => {
   it('shows a bare count as ×n and a measure as written', () => {
     expect(quantityLabel('2')).toBe('×2');
     expect(quantityLabel('500 g')).toBe('500 g');
+  });
+});
+
+describe('editChanges', () => {
+  const item = { name: 'Farina', qty: '500 g' };
+
+  it('cleans the name like an added one and compresses the quantity', () => {
+    expect(editChanges(item, '  farina   integrale ', ' 1   kg ')).toEqual({ name: 'Farina integrale', qty: '1 kg' });
+  });
+
+  it('removes the quantity when it is emptied', () => {
+    expect(editChanges(item, 'Farina', '  ')).toEqual({ qty: '' });
+  });
+
+  it('is empty when nothing changes', () => {
+    expect(editChanges(item, ' farina', '500 g ')).toEqual({});
+  });
+
+  it('returns null without a name', () => {
+    expect(editChanges(item, '   ', '2')).toBeNull();
   });
 });

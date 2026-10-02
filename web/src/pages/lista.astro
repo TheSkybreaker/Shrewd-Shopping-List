@@ -88,6 +88,18 @@ import Toast from '../components/Toast.astro';
       </div>
     </Sheet>
 
+    <Sheet open="sheet === 'edit'" close="sheet = null" label="Modifica">
+      <form @submit.prevent="saveEdit()">
+        <h2 class="sh-title">Modifica</h2>
+        <label class="field">Nome<input x-model="editName" maxlength="60" required autocomplete="off" autofocus /></label>
+        <label class="field">
+          <span>Quantità <small>facoltativa</small></span>
+          <input x-model="editQty" maxlength="20" autocomplete="off" />
+        </label>
+        <button type="submit" class="btn primary wide" :disabled="!$store.session.online">Salva</button>
+      </form>
+    </Sheet>
+
     <Toast />
   </div>
 </Page>

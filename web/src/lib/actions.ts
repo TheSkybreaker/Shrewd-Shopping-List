@@ -1,7 +1,7 @@
 import { capitalize } from './dates';
 import { scheduleDeletion } from './deletions';
 import { findByName, removedLabel, splitItems } from './groups';
-import { parseEntry } from './parse';
+import { editChanges, parseEntry } from './parse';
 import { newRecordId, pb, type Item, type List, type User } from './pb';
 import { items, session, toast } from './stores';
 
@@ -98,6 +98,32 @@ export function toggleItem(itemId: string) {
     () => items().upsert(before),
     () => pb.collection('items').update(itemId, changes),
   );
+}
+
+// False keeps the edit sheet open: the name is empty or already among the items to buy.
+export function editItem(itemId: string, name: string, qty: string): boolean {
+  const current = items().byId[itemId];
+  if (!current) return true;
+
+  const changes = editChanges(current, name, qty);
+  if (!changes) return false;
+  if (!Object.keys(changes).length) return true;
+
+  if (changes.name) {
+    const others = splitItems(items().forList(current.list)).toBuy.filter((item) => item.id !== itemId);
+    if (findByName(others, changes.name)) {
+      toast().show('È già in lista');
+      return false;
+    }
+  }
+
+  const before = { ...current };
+  void optimistic(
+    () => items().upsert({ ...before, ...changes }),
+    () => items().upsert(before),
+    () => pb.collection('items').update(itemId, changes),
+  );
+  return true;
 }
 
 export function deleteItem(item: Item) {

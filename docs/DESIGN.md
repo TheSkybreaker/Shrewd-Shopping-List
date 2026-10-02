@@ -10,7 +10,7 @@ Obiettivi della v1:
 
 - Login con nome utente e password, sessione che dura mesi.
 - Liste per data con titolo facoltativo, divise in In programma e Passate.
-- Elementi con quantità facoltativa, spunta, eliminazione con annulla.
+- Elementi con quantità facoltativa, spunta, modifica, eliminazione con annulla.
 - Aggiornamenti in tempo reale tra i due telefoni ad app aperta.
 - Notifiche push di sistema ad app chiusa, solo per le aggiunte fatte dall'altra persona.
 - Installabile da Chrome su Android, interfaccia azzurra, solo tema scuro.
@@ -174,7 +174,7 @@ Il realtime allinea i due telefoni ad app aperta; le notifiche push servono solo
 
 ## Notifiche push
 
-Web Push con chiavi VAPID, inviate dal backend Go solo all'altra persona e solo quando aggiunge un elemento. Spunte, eliminazioni e nuove liste non notificano.
+Web Push con chiavi VAPID, inviate dal backend Go solo all'altra persona e solo quando aggiunge un elemento. Spunte, modifiche, eliminazioni e nuove liste non notificano.
 
 ### Route custom
 
@@ -244,13 +244,14 @@ Tre pagine e tre pannelli dal basso, con l'aspetto e i comportamenti della demo.
 |---|---|---|
 | Login (`/login`) | Logo, titolo Spesa grande, sottotitolo, nome utente, password | Entra |
 | Home (`/`) | Saluto, riepilogo, card notifiche se spente, In programma (data da oggi in poi, crescente), Passate richiudibile (decrescente) | Apri lista, Nuova lista, profilo |
-| Lista (`/lista?id=`) | Pannello azzurro con giorno gigante, giorno della settimana, mese, pillola Oggi, Domani o Ieri, titolo e avanzamento; poi Da prendere e Nel carrello | Aggiungi, spunta, elimina, menu |
+| Lista (`/lista?id=`) | Pannello azzurro con giorno gigante, giorno della settimana, mese, pillola Oggi, Domani o Ieri, titolo e avanzamento; poi Da prendere e Nel carrello | Aggiungi, spunta, modifica, elimina, menu |
 | Pannello Nuova lista | Chip Oggi, Domani, Sabato (senza doppioni), selettore data, nome facoltativo | Crea lista: apre la lista con il focus sul campo |
 | Pannello Menu lista | Titolo e data della lista | Togli le cose già prese (n); Elimina la lista con secondo tocco di conferma |
+| Pannello Modifica | Nome e quantità facoltativa dell'elemento, già compilati | Salva |
 | Pannello Profilo | Avatar, nome modificabile, nome utente, switch notifiche, Installa l'app | Esci |
 
 - Riga in home: numero del giorno grande, giorno abbreviato, titolo, data relativa o estesa, barra di avanzamento, stato (N da prendere, Fatto, Vuota) e avatar di chi ha aggiunto elementi.
-- Elemento: cerchio di spunta, nome con pillola della quantità, sotto avatar e aggiunto da te o da {nome} (preso da, se spuntato), pulsante elimina. Da prendere in ordine di `added_at`, quindi un elemento rimesso dal carrello va in fondo; Nel carrello per `checked_at` decrescente, in un contenitore solo bordato.
+- Elemento: cerchio di spunta, nome con pillola della quantità, sotto avatar e aggiunto da te o da {nome} (preso da, se spuntato), pulsanti modifica (matita) ed elimina. Il tocco sulla riga spunta; tenerla premuta mezzo secondo apre la modifica, con una vibrazione breve, e un dito che si sposta di più di 10 px la annulla perché sta scorrendo. Da prendere in ordine di `added_at`, quindi un elemento rimesso dal carrello va in fondo; Nel carrello per `checked_at` decrescente, in un contenitore solo bordato.
 - Barra di inserimento fissa in basso: fino a 7 chip di suggerimento, il campo Aggiungi, es. 2 latte e il pulsante +. Dopo l'invio il campo si svuota e tiene il focus, così la tastiera resta aperta.
 - Suggerimenti, in quest'ordine, esclusi quelli già da prendere: Latte, Pane, Uova, Acqua, Frutta, Caffè, Pasta, Insalata, Burro, Carta igienica, Pomodori, Yogurt.
 
@@ -270,6 +271,7 @@ Unità riconosciute: g, kg, ml, l, pz. Spazi multipli compressi, prima lettera m
 - Doppione già da prendere (confronto senza maiuscole): niente inserimento, l'elemento esistente lampeggia, toast È già in lista.
 - Doppione già nel carrello: torna tra le cose da prendere a nome di chi l'ha riscritto, toast Rimesso tra le cose da prendere.
 - Spunta: animazione di 260 ms sul cerchio, poi l'elemento cambia sezione.
+- Modifica: il nome si ripulisce come in aggiunta e la quantità svuotata si toglie; un nome già tra le cose da prendere non si salva, toast È già in lista. Restano chi l'ha aggiunto, la posizione e la spunta. Modifica ottimistica, come la spunta.
 - Eliminazioni (elemento, cose prese, lista): la UI toglie subito e la chiamata API parte quando scade il toast con Annulla, dopo 5 secondi. Annulla ripristina senza chiamate.
 - Oggi è il giorno locale del telefono. Le etichette Oggi, Domani e Ieri valgono anche per le righe in home.
 
@@ -322,6 +324,7 @@ Frasi brevi, iniziale maiuscola e il resto minuscolo, niente punti esclamativi; 
 | Avanzamento | {n} da prendere, {m} nel carrello / Tutto nel carrello / Ancora vuota |
 | Campo di inserimento | Aggiungi, es. 2 latte |
 | Nuova lista, nome | Es. Esselunga, cena di venerdì |
+| Pannello modifica | Modifica / Nome / Quantità facoltativa / Salva |
 | Toast | È già in lista / Rimesso tra le cose da prendere / {elemento} eliminato / Lista eliminata / Notifiche attivate / Non salvato, riprova |
 | Azione dei toast | Annulla |
 | Offline | Sei offline, le modifiche sono in pausa |

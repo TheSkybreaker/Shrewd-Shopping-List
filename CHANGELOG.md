@@ -5,6 +5,7 @@
 - Sign in with a username instead of an email (lowercased on the login page), trusted `X-Forwarded-For` from Caddy and PocketBase rate limits on, and `VAPID_SUBJECT` accepted with or without `mailto:`.
 - GitHub Actions workflow that tests, builds and deploys every push to `main` to shopping.skybreaker.dev; the `deploy/` folder is gone and the server configuration lives on the server, described in `docs/DESIGN.md`.
 - Shorter interface copy ("Scopri subito cosa manca", no partner name in the empty home and under the notifications switch) and no realtime indicator in the top bar.
+- Items can be edited: the pencil next to the delete button or a long press on the row opens a sheet with name and quantity, saved optimistically with the same duplicate check as adding.
 
 ## Milestone 5: deploy
 

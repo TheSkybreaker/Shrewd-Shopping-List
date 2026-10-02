@@ -4,12 +4,24 @@ import Icon from './Icon.astro';
 ---
 
 <li class="item" :class="itemClass(item)" :data-id="item.id">
-  <button type="button" class="item-toggle" :aria-pressed="item.checked" :disabled="!$store.session.online" @click="toggle(item)">
+  <button
+    type="button"
+    class="item-toggle"
+    :aria-pressed="item.checked"
+    :disabled="!$store.session.online"
+    @click="tap(item)"
+    @pointerdown="pressStart(item, $event)"
+    @pointermove="pressMove($event)"
+    @pointerup="pressEnd()"
+    @pointercancel="pressEnd()"
+    @pointerleave="pressEnd()"
+    @contextmenu.prevent>
     <span class="check" aria-hidden="true"><Icon name="check" /></span>
     <span class="item-text">
       <span class="item-name"><span x-text="item.name"></span> <span class="qty" x-show="item.qty" x-text="quantity(item.qty)"></span></span>
       <span class="item-meta"><Avatar user="meta(item).userId" size="xs" /><span x-text="meta(item).text"></span></span>
     </span>
   </button>
+  <button type="button" class="edit" :aria-label="`Modifica ${item.name}`" :disabled="!$store.session.online" @click="openEdit(item)"><Icon name="pencil" /></button>
   <button type="button" class="del" :aria-label="`Elimina ${item.name}`" :disabled="!$store.session.online" @click="remove(item)"><Icon name="x" /></button>
 </li>
