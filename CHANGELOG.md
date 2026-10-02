@@ -1,5 +1,10 @@
 # Changelog
 
+## Milestone 4: push notifications
+
+- Web Push from the items hook to the other person's devices (TTL 12 h, high urgency, list id as topic), subscriptions dropped on 404 and 410, and the `/api/push` routes, tested with a fake push service.
+- Service worker notifications grouped per list and skipped with the app on screen, opening the list on tap; home card, profile switch, unsubscribe on logout and "Prova notifica" in development.
+
 ## Milestone 3: PWA
 
 - Web app manifest, generated icons (`pnpm icons`), a Workbox service worker that precaches the app shell and never the API, and the new version toast with Aggiorna.

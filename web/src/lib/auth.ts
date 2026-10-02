@@ -1,6 +1,7 @@
 import { ClientResponseError } from 'pocketbase';
 import { clearCache } from './cache';
 import { pb } from './pb';
+import { forgetDevice } from './push';
 
 export type PageName = 'login' | 'home' | 'list';
 
@@ -35,7 +36,8 @@ export async function refreshSession() {
   }
 }
 
-export function logout() {
+export async function logout() {
+  await forgetDevice();
   clearCache();
   pb.authStore.clear();
   redirect('/login/');

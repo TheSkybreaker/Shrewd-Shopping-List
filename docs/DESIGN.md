@@ -183,7 +183,7 @@ Tutte richiedono un utente autenticato.
 | GET /api/push/key | Restituisce la chiave pubblica VAPID |
 | POST /api/push/subscribe | Riceve la subscription del browser, fa upsert per `endpoint` e la assegna all'utente autenticato |
 | POST /api/push/unsubscribe | Riceve `{ endpoint }` ed elimina la subscription se appartiene all'utente |
-| POST /api/push/test | Solo con `DEV=1`: manda una push di prova ai dispositivi dell'utente stesso |
+| POST /api/push/test | Solo con `DEV=1`: manda una push di prova ai dispositivi dell'utente stesso, con `type` test, che il service worker mostra anche con l'app aperta |
 
 ### Invio dal backend
 
@@ -381,10 +381,10 @@ Cinque milestone in sequenza; ognuna è finita quando tutte le sue caselle sono 
 
 ### 4. Notifiche push
 
-- [ ] Route `/api/push/*` e hook dopo la creazione di `items`
+- [x] Route `/api/push/*` e hook dopo la creazione di `items`
 - [ ] Eventi `push` e `notificationclick` nel service worker, raggruppamento per lista, niente notifica con l'app in primo piano
-- [ ] Pulizia delle subscription su 404 e 410
-- [ ] Test Go dell'invio con un sender finto: l'autore è escluso, la subscription si elimina su 410
+- [x] Pulizia delle subscription su 404 e 410
+- [x] Test Go dell'invio con un sender finto: l'autore è escluso, la subscription si elimina su 410
 - [ ] Prova reale: app chiusa sul telefono B, aggiunta dal telefono A, notifica entro 5 secondi; tre aggiunte di fila diventano una sola notifica
 
 ### 5. Deploy

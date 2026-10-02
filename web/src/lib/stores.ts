@@ -1,6 +1,7 @@
 import Alpine from 'alpinejs';
 import { pb, type Item, type List, type User } from './pb';
 import { isPendingDeletion } from './pending';
+import { initialNotificationState, type NotificationState } from './push';
 
 const FRESH_MS = 1500;
 const TOAST_MS = 2800;
@@ -11,6 +12,7 @@ export interface SessionStore {
   live: boolean;
   online: boolean;
   installable: boolean;
+  notifications: NotificationState;
   readonly partner: User | null;
   name(userId: string): string;
   initial(userId: string): string;
@@ -79,6 +81,7 @@ function sessionStore(): SessionStore {
     live: false,
     online: navigator.onLine,
     installable: false,
+    notifications: initialNotificationState(),
     get partner() {
       return Object.values(this.users).find((user) => user.id !== this.me?.id) ?? null;
     },

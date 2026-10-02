@@ -6,6 +6,7 @@ import { resumeDeletions } from './deletions';
 import { contributors, homeSummary, listProgress, rowStatus, splitLists } from './groups';
 import { goTo, listUrl, takeFlash } from './nav';
 import { installApp } from './pwa';
+import { disableNotifications, enableNotifications, sendTestPush } from './push';
 import type { List } from './pb';
 import { loadHome, loadUsers, onReconnect, subscribeHome } from './realtime';
 import { items, lists, session, toast } from './stores';
@@ -111,6 +112,15 @@ export function homePage() {
     },
 
     install: installApp,
+    enableNotifications,
+    sendTestPush,
+    // The test push route exists only on a backend started with DEV=1.
+    devTools: import.meta.env.DEV,
+
+    toggleNotifications() {
+      if (session().notifications === 'on') void disableNotifications();
+      else void enableNotifications();
+    },
 
     logout,
   };

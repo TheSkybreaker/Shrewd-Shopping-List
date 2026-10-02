@@ -97,6 +97,8 @@ func main() {
 		return se.Next()
 	})
 
+	registerPush(app, cfg, webpush.SendNotification)
+
 	if err := app.Start(); err != nil {
 		log.Fatal(err)
 	}

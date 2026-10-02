@@ -29,6 +29,15 @@ import Toast from '../components/Toast.astro';
         <p x-show="loaded" x-text="summary"></p>
       </section>
 
+      <aside class="notif-card" x-show="$store.session.notifications === 'off'">
+        <span class="notif-ico"><Icon name="bell" /></span>
+        <div>
+          <b>Sappi subito cosa manca</b>
+          <p x-text="`Ricevi una notifica quando ${partnerName} aggiunge qualcosa, anche con l'app chiusa.`"></p>
+        </div>
+        <button type="button" class="btn small" :disabled="!$store.session.online" @click="enableNotifications()">Attiva notifiche</button>
+      </aside>
+
       <div x-show="loaded">
         <template x-if="groups.upcoming.length">
           <section>
@@ -92,8 +101,24 @@ import Toast from '../components/Toast.astro';
           <p x-text="$store.session.me?.email"></p>
         </div>
       </div>
+      <div class="setting" x-show="$store.session.notifications !== 'unsupported'">
+        <div>
+          <b>Notifiche</b>
+          <span x-text="`Quando ${partnerName} aggiunge qualcosa`"></span>
+        </div>
+        <button
+          type="button"
+          class="switch"
+          role="switch"
+          aria-label="Notifiche"
+          :aria-checked="$store.session.notifications === 'on'"
+          :disabled="!$store.session.online"
+          @click="toggleNotifications()"><i></i></button>
+      </div>
+      <p class="hint" x-show="$store.session.notifications === 'denied'">Riattivale da Impostazioni Android, app Spesa, Notifiche.</p>
       <label class="field">Il tuo nome<input x-model="nameDraft" maxlength="20" required :disabled="!$store.session.online" @change="saveName()" /></label>
       <button type="button" class="btn primary wide" x-show="$store.session.installable" @click="install()">Installa l'app</button>
+      <button type="button" class="btn ghost wide" x-show="devTools" @click="sendTestPush()">Prova notifica</button>
       <button type="button" class="btn ghost wide" @click="logout()">Esci</button>
     </Sheet>
 

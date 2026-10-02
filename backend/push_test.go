@@ -1,0 +1,244 @@
+package main
+
+import (
+	"encoding/json"
+	"io"
+	"net/http"
+	"slices"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/SherClockHolmes/webpush-go"
+	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tests"
+	"github.com/pocketbase/pocketbase/tools/security"
+)
+
+type sentPush struct {
+	endpoint string
+	payload  pushPayload
+	options  webpush.Options
+}
+
+// fakePushService answers 201 unless a status is set for the endpoint.
+type fakePushService struct {
+	mu     sync.Mutex
+	status map[string]int
+	sent   []sentPush
+}
+
+func (f *fakePushService) send(message []byte, subscription *webpush.Subscription, options *webpush.Options) (*http.Response, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	var payload pushPayload
+	if err := json.Unmarshal(message, &payload); err != nil {
+		return nil, err
+	}
+	f.sent = append(f.sent, sentPush{endpoint: subscription.Endpoint, payload: payload, options: *options})
+
+	status := f.status[subscription.Endpoint]
+	if status == 0 {
+		status = http.StatusCreated
+	}
+	return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader(""))}, nil
+}
+
+func (f *fakePushService) endpoints() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	endpoints := make([]string, 0, len(f.sent))
+	for _, push := range f.sent {
+		endpoints = append(endpoints, push.endpoint)
+	}
+	slices.Sort(endpoints)
+	return endpoints
+}
+
+func testConfig(dev bool) config {
+	return config{
+		vapidPublicKey:  security.RandomString(20),
+		vapidPrivateKey: security.RandomString(20),
+		vapidSubject:    "mailto:test@example.com",
+		dev:             dev,
+	}
+}
+
+func addSubscription(t testing.TB, app core.App, user *core.Record, endpoint string) *core.Record {
+	t.Helper()
+	collection, err := app.FindCollectionByNameOrId("push_subscriptions")
+	if err != nil {
+		t.Fatal(err)
+	}
+	subscription := core.NewRecord(collection)
+	subscription.Load(map[string]any{"user": user.Id, "endpoint": endpoint, "p256dh": "key", "auth": "secret"})
+	if err := app.Save(subscription); err != nil {
+		t.Fatal(err)
+	}
+	return subscription
+}
+
+func TestNotifyItemAddedSkipsAuthorAndDropsGoneSubscriptions(t *testing.T) {
+	f := newFixture(t)
+	app, err := tests.NewTestApp(f.dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(app.Cleanup)
+
+	ownDevice := addSubscription(t, app, f.userA, "https://push.example.com/a")
+	partnerPhone := addSubscription(t, app, f.userB, "https://push.example.com/b-phone")
+	partnerGone := addSubscription(t, app, f.userB, "https://push.example.com/b-gone")
+
+	service := &fakePushService{status: map[string]int{"https://push.example.com/b-gone": http.StatusGone}}
+	cfg := testConfig(false)
+	p := &pusher{app: app, cfg: cfg, send: service.send, client: http.DefaultClient}
+
+	item, err := app.FindRecordById("items", f.item.Id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := p.notifyItemAdded(item); err != nil {
+		t.Fatal(err)
+	}
+
+	if got, want := service.endpoints(), []string{"https://push.example.com/b-gone", "https://push.example.com/b-phone"}; !slices.Equal(got, want) {
+		t.Fatalf("pushed to %v, want only the partner's devices %v", got, want)
+	}
+
+	push := service.sent[0]
+	wantPayload := pushPayload{Type: "item_added", ListID: f.list.Id, ListTitle: "Spesa", ListDate: "2026-10-03", Item: "Pane", By: "User A"}
+	if push.payload != wantPayload {
+		t.Fatalf("payload = %+v, want %+v", push.payload, wantPayload)
+	}
+	if push.options.TTL != 12*60*60 || push.options.Urgency != webpush.UrgencyHigh || push.options.Topic != f.list.Id ||
+		push.options.Subscriber != cfg.vapidSubject || push.options.VAPIDPrivateKey != cfg.vapidPrivateKey {
+		t.Fatalf("unexpected push options %+v", push.options)
+	}
+
+	if _, err := app.FindRecordById("push_subscriptions", partnerGone.Id); err == nil {
+		t.Fatal("the subscription answered with 410 was not deleted")
+	}
+	for _, kept := range []*core.Record{ownDevice, partnerPhone} {
+		if _, err := app.FindRecordById("push_subscriptions", kept.Id); err != nil {
+			t.Fatalf("subscription %s was deleted", kept.GetString("endpoint"))
+		}
+	}
+}
+
+func TestCreatingAnItemPushesToThePartner(t *testing.T) {
+	f := newFixture(t)
+	service := &fakePushService{}
+
+	(&tests.ApiScenario{
+		Name:    "user A adds an item",
+		Method:  http.MethodPost,
+		URL:     "/api/collections/items/records",
+		Headers: f.authA(),
+		Body:    strings.NewReader(`{"list":"` + f.list.Id + `","name":"Latte","added_by":"` + f.userA.Id + `"}`),
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			app, err := tests.NewTestApp(f.dataDir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			addSubscription(t, app, f.userB, "https://push.example.com/b")
+			registerPush(app, testConfig(false), service.send)
+			return app
+		},
+		ExpectedStatus:  200,
+		ExpectedContent: []string{`"name":"Latte"`},
+		AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
+			// The push runs in a goroutine after the response.
+			deadline := time.Now().Add(2 * time.Second)
+			for len(service.endpoints()) == 0 && time.Now().Before(deadline) {
+				time.Sleep(10 * time.Millisecond)
+			}
+			if got := service.endpoints(); !slices.Equal(got, []string{"https://push.example.com/b"}) {
+				t.Fatalf("pushed to %v", got)
+			}
+		},
+	}).Test(t)
+}
+
+func TestPushRoutes(t *testing.T) {
+	f := newFixture(t)
+	endpoint := "https://push.example.com/shared-browser"
+	subscribeBody := `{"endpoint":"` + endpoint + `","keys":{"p256dh":"key","auth":"secret"}}`
+
+	pushApp := func(dev bool, setup func(testing.TB, *tests.TestApp)) func(testing.TB) *tests.TestApp {
+		return func(t testing.TB) *tests.TestApp {
+			app, err := tests.NewTestApp(f.dataDir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if setup != nil {
+				setup(t, app)
+			}
+			registerPush(app, testConfig(dev), (&fakePushService{}).send)
+			return app
+		}
+	}
+	subscriptionOwner := func(t testing.TB, app *tests.TestApp) string {
+		subscription, err := app.FindFirstRecordByData("push_subscriptions", "endpoint", endpoint)
+		if err != nil {
+			return ""
+		}
+		return subscription.GetString("user")
+	}
+	subscribedByB := func(t testing.TB, app *tests.TestApp) { addSubscription(t, app, f.userB, endpoint) }
+
+	scenarios := []tests.ApiScenario{
+		{Name: "guest reads the key", Method: http.MethodGet, URL: "/api/push/key", TestAppFactory: pushApp(false, nil), ExpectedStatus: 401, ExpectedContent: []string{`"data":{}`}},
+		{Name: "user reads the key", Method: http.MethodGet, URL: "/api/push/key", Headers: f.authA(), TestAppFactory: pushApp(false, nil), ExpectedStatus: 200, ExpectedContent: []string{`"publicKey":"`}},
+		{
+			Name: "user subscribes", Method: http.MethodPost, URL: "/api/push/subscribe", Headers: f.authA(), Body: strings.NewReader(subscribeBody),
+			TestAppFactory: pushApp(false, nil), ExpectedStatus: 204,
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
+				if owner := subscriptionOwner(t, app); owner != f.userA.Id {
+					t.Fatalf("owner = %q, want user A", owner)
+				}
+			},
+		},
+		{
+			Name: "a browser subscribed by B is taken over by A", Method: http.MethodPost, URL: "/api/push/subscribe", Headers: f.authA(), Body: strings.NewReader(subscribeBody),
+			TestAppFactory: pushApp(false, subscribedByB), ExpectedStatus: 204,
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
+				count, err := app.CountRecords("push_subscriptions")
+				if err != nil || count != 1 || subscriptionOwner(t, app) != f.userA.Id {
+					t.Fatalf("count = %d, owner = %q, want 1 subscription of user A", count, subscriptionOwner(t, app))
+				}
+			},
+		},
+		{
+			Name: "an endpoint that is not HTTPS is refused", Method: http.MethodPost, URL: "/api/push/subscribe", Headers: f.authA(),
+			Body: strings.NewReader(`{"endpoint":"http://127.0.0.1:8090/api","keys":{"p256dh":"key","auth":"secret"}}`), TestAppFactory: pushApp(false, nil),
+			ExpectedStatus: 400, ExpectedContent: []string{`"data":{}`},
+		},
+		{
+			Name: "user A cannot unsubscribe B's browser", Method: http.MethodPost, URL: "/api/push/unsubscribe", Headers: f.authA(), Body: strings.NewReader(subscribeBody),
+			TestAppFactory: pushApp(false, subscribedByB), ExpectedStatus: 204,
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
+				if subscriptionOwner(t, app) != f.userB.Id {
+					t.Fatal("B's subscription was deleted by A")
+				}
+			},
+		},
+		{
+			Name: "user B unsubscribes their browser", Method: http.MethodPost, URL: "/api/push/unsubscribe", Headers: f.authB(), Body: strings.NewReader(subscribeBody),
+			TestAppFactory: pushApp(false, subscribedByB), ExpectedStatus: 204,
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
+				if subscriptionOwner(t, app) != "" {
+					t.Fatal("B's subscription was not deleted")
+				}
+			},
+		},
+		{Name: "test push is off without DEV", Method: http.MethodPost, URL: "/api/push/test", Headers: f.authB(), TestAppFactory: pushApp(false, subscribedByB), ExpectedStatus: 404, ExpectedContent: []string{`"data":{}`}},
+		{Name: "test push with DEV", Method: http.MethodPost, URL: "/api/push/test", Headers: f.authB(), TestAppFactory: pushApp(true, subscribedByB), ExpectedStatus: 200, ExpectedContent: []string{`"sent":1`}},
+	}
+	for _, scenario := range scenarios {
+		scenario.Test(t)
+	}
+}

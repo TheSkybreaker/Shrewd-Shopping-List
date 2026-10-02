@@ -5,6 +5,7 @@ import { guardPage, isRedirecting, loginPage, refreshSession, type PageName } fr
 import { composer } from './composer';
 import { homePage } from './home-page';
 import { listPage } from './list-page';
+import { syncPush } from './push';
 import { registerServiceWorker, trackInstall } from './pwa';
 import { trackConnection } from './realtime';
 import { registerStores } from './stores';
@@ -27,5 +28,6 @@ export default (Alpine: Alpine) => {
   if (page !== 'login' && !isRedirecting()) {
     trackConnection();
     void refreshSession();
+    void syncPush();
   }
 };
