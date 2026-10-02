@@ -1,9 +1,11 @@
 import { createList, renameMe } from './actions';
 import { isRedirecting, logout } from './auth';
+import { restoreHome, saveHome } from './cache';
 import { fromIsoDate, quickDays, shortDateLabel, toIsoDate, weekdayShort } from './dates';
 import { resumeDeletions } from './deletions';
 import { contributors, homeSummary, listProgress, rowStatus, splitLists } from './groups';
 import { goTo, listUrl, takeFlash } from './nav';
+import { installApp } from './pwa';
 import type { List } from './pb';
 import { loadHome, loadUsers, onReconnect, subscribeHome } from './realtime';
 import { items, lists, session, toast } from './stores';
@@ -21,6 +23,7 @@ export function homePage() {
 
     async init() {
       if (isRedirecting()) return;
+      this.loaded = restoreHome();
       resumeDeletions();
       const flash = takeFlash();
       if (flash) toast().show(flash);
@@ -28,6 +31,7 @@ export function homePage() {
       subscribeHome();
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') void this.reload();
+        else saveHome();
       });
       onReconnect(() => void this.reload());
       await this.reload();
@@ -36,6 +40,7 @@ export function homePage() {
     async reload() {
       try {
         await Promise.all([loadUsers(), loadHome()]);
+        saveHome();
       } catch {
         // Offline or a server error: the page keeps what it already shows.
       } finally {
@@ -104,6 +109,8 @@ export function homePage() {
     saveName() {
       void renameMe(this.nameDraft);
     },
+
+    install: installApp,
 
     logout,
   };

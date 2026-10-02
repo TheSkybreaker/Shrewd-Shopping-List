@@ -5,6 +5,7 @@ import { guardPage, isRedirecting, loginPage, refreshSession, type PageName } fr
 import { composer } from './composer';
 import { homePage } from './home-page';
 import { listPage } from './list-page';
+import { registerServiceWorker, trackInstall } from './pwa';
 import { trackConnection } from './realtime';
 import { registerStores } from './stores';
 
@@ -13,6 +14,8 @@ export default (Alpine: Alpine) => {
   Alpine.plugin(focus);
   Alpine.plugin(collapse);
   registerStores();
+  registerServiceWorker();
+  trackInstall();
 
   Alpine.data('loginPage', loginPage);
   Alpine.data('homePage', homePage);

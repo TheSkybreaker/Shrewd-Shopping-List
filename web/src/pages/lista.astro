@@ -2,6 +2,7 @@
 import Icon from '../components/Icon.astro';
 import ItemRow from '../components/ItemRow.astro';
 import LiveIndicator from '../components/LiveIndicator.astro';
+import OfflineBanner from '../components/OfflineBanner.astro';
 import Page from '../components/Page.astro';
 import Sheet from '../components/Sheet.astro';
 import Toast from '../components/Toast.astro';
@@ -14,6 +15,8 @@ import Toast from '../components/Toast.astro';
       <LiveIndicator />
       <button type="button" class="icon-btn" aria-label="Altre azioni sulla lista" @click="openMenu()"><Icon name="more" /></button>
     </header>
+
+    <OfflineBanner />
 
     <main class="list" x-show="loaded && list">
       <section class="panel">
@@ -46,7 +49,7 @@ import Toast from '../components/Toast.astro';
       <div class="composer">
         <div class="chips" role="group" aria-label="Aggiunte rapide">
           <template x-for="name in chips" :key="name">
-            <button type="button" class="chip" @click="addSuggestion(name)"><Icon name="plus" /><span x-text="name"></span></button>
+            <button type="button" class="chip" :disabled="!$store.session.online" @click="addSuggestion(name)"><Icon name="plus" /><span x-text="name"></span></button>
           </template>
         </div>
         <form class="add" autocomplete="off" @submit.prevent="submit(); $refs.input.focus({ preventScroll: true })">
@@ -57,9 +60,10 @@ import Toast from '../components/Toast.astro';
             placeholder="Aggiungi, es. 2 latte"
             aria-label="Cosa serve?"
             enterkeyhint="send"
+            :disabled="!$store.session.online"
             x-init="focusComposer && $nextTick(() => $el.focus({ preventScroll: true }))"
           />
-          <button class="add-btn" type="submit" aria-label="Aggiungi alla lista"><Icon name="plus" /></button>
+          <button class="add-btn" type="submit" aria-label="Aggiungi alla lista" :disabled="!$store.session.online"><Icon name="plus" /></button>
         </form>
       </div>
     </div>
@@ -73,12 +77,13 @@ import Toast from '../components/Toast.astro';
         <button
           type="button"
           class="menu-act"
-          :disabled="!groups.inCart.length"
+          :disabled="!groups.inCart.length || !$store.session.online"
           @click="clearCart()"
           x-text="groups.inCart.length ? `Togli le cose già prese (${groups.inCart.length})` : 'Togli le cose già prese'"></button>
         <button
           type="button"
           class="menu-act danger"
+          :disabled="!$store.session.online"
           :class="{ 'is-armed': confirmDelete }"
           @click="deleteList()"
           x-text="confirmDelete ? 'Tocca di nuovo per eliminare' : 'Elimina la lista'"></button>

@@ -1,5 +1,10 @@
 # Changelog
 
+## Milestone 3: PWA
+
+- Web app manifest, generated icons (`pnpm icons`), a Workbox service worker that precaches the app shell and never the API, and the new version toast with Aggiorna.
+- Offline read only mode from the last state saved per view, with the offline banner and disabled actions; "Installa l'app" in the profile while Chrome offers it.
+
 ## Milestone 2: frontend base
 
 - Static Astro frontend built into `backend/pb_public`, with Alpine stores, self-hosted fonts, the dark theme only, login with page guards, home, new list, list detail with add, check, delete and undo, and Vitest tests for the parser, dates and grouping.

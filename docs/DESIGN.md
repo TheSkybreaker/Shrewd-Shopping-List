@@ -375,9 +375,9 @@ Cinque milestone in sequenza; ognuna è finita quando tutte le sue caselle sono 
 
 ### 3. PWA
 
-- [ ] Manifest, icone e service worker con precache
+- [x] Manifest, icone e service worker con precache
 - [ ] Installabile da Chrome su Android; offline si apre in sola lettura
-- [ ] Toast di nuova versione funzionante
+- [x] Toast di nuova versione funzionante
 
 ### 4. Notifiche push
 

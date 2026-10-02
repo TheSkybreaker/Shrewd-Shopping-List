@@ -9,6 +9,8 @@ export interface SessionStore {
   me: User | null;
   users: Record<string, User>;
   live: boolean;
+  online: boolean;
+  installable: boolean;
   readonly partner: User | null;
   name(userId: string): string;
   initial(userId: string): string;
@@ -39,7 +41,8 @@ export interface ToastStore {
   message: string;
   actionLabel: string;
   visible: boolean;
-  show(message: string, action?: ToastAction, durationMs?: number): void;
+  // durationMs null keeps the toast until it is tapped or replaced.
+  show(message: string, action?: ToastAction, durationMs?: number | null): void;
   act(): void;
   hide(): void;
 }
@@ -74,6 +77,8 @@ function sessionStore(): SessionStore {
     me: pb.authStore.record as User | null,
     users: {},
     live: false,
+    online: navigator.onLine,
+    installable: false,
     get partner() {
       return Object.values(this.users).find((user) => user.id !== this.me?.id) ?? null;
     },
@@ -121,7 +126,7 @@ function toastStore(): ToastStore {
       this.actionLabel = nextAction?.label ?? '';
       this.visible = true;
       clearTimeout(timer);
-      timer = setTimeout(() => this.hide(), durationMs);
+      if (durationMs !== null) timer = setTimeout(() => this.hide(), durationMs);
     },
     act() {
       const run = action?.run;
@@ -144,4 +149,6 @@ export function registerStores() {
   pb.authStore.onChange(() => {
     session().me = pb.authStore.record as User | null;
   });
+  addEventListener('online', () => (session().online = true));
+  addEventListener('offline', () => (session().online = false));
 }

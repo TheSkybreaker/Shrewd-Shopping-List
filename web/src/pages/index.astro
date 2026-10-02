@@ -3,6 +3,7 @@ import Avatar from '../components/Avatar.astro';
 import Icon from '../components/Icon.astro';
 import ListRow from '../components/ListRow.astro';
 import LiveIndicator from '../components/LiveIndicator.astro';
+import OfflineBanner from '../components/OfflineBanner.astro';
 import Page from '../components/Page.astro';
 import Sheet from '../components/Sheet.astro';
 import Toast from '../components/Toast.astro';
@@ -19,6 +20,8 @@ import Toast from '../components/Toast.astro';
         </button>
       </div>
     </header>
+
+    <OfflineBanner />
 
     <main class="home">
       <section class="hello">
@@ -52,7 +55,7 @@ import Toast from '../components/Toast.astro';
 
     <div class="fab-wrap">
       <div class="fab-in">
-        <button type="button" class="fab" @click="openNewList()"><Icon name="plus" /><span>Nuova lista</span></button>
+        <button type="button" class="fab" :disabled="!$store.session.online" @click="openNewList()"><Icon name="plus" /><span>Nuova lista</span></button>
       </div>
     </div>
 
@@ -77,7 +80,7 @@ import Toast from '../components/Toast.astro';
           <span>Nome <small>facoltativo</small></span>
           <input x-model="newListTitle" placeholder="Es. Esselunga, cena di venerdì" maxlength="40" />
         </label>
-        <button type="submit" class="btn primary wide" :disabled="creating">Crea lista</button>
+        <button type="submit" class="btn primary wide" :disabled="creating || !$store.session.online">Crea lista</button>
       </form>
     </Sheet>
 
@@ -89,7 +92,8 @@ import Toast from '../components/Toast.astro';
           <p x-text="$store.session.me?.email"></p>
         </div>
       </div>
-      <label class="field">Il tuo nome<input x-model="nameDraft" maxlength="20" required @change="saveName()" /></label>
+      <label class="field">Il tuo nome<input x-model="nameDraft" maxlength="20" required :disabled="!$store.session.online" @change="saveName()" /></label>
+      <button type="button" class="btn primary wide" x-show="$store.session.installable" @click="install()">Installa l'app</button>
       <button type="button" class="btn ghost wide" @click="logout()">Esci</button>
     </Sheet>
 

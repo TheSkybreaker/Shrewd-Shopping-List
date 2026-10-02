@@ -1,5 +1,6 @@
 import { clearCart, deleteItem, deleteList, toggleItem } from './actions';
 import { isRedirecting } from './auth';
+import { restoreList, saveList } from './cache';
 import { fromIsoDate, fullDateLabel, monthLabel, relativeDay, weekdayLong } from './dates';
 import { resumeDeletions } from './deletions';
 import { listProgress, progressLabel, splitItems } from './groups';
@@ -29,6 +30,7 @@ export function listPage() {
       if (isRedirecting()) return;
       if (!this.listId) return goTo('/');
 
+      this.loaded = restoreList(this.listId);
       resumeDeletions();
       subscribeList(this.listId, () => {
         setFlash(`Lista eliminata da ${session().partner?.name ?? ''}`.trim());
@@ -36,6 +38,7 @@ export function listPage() {
       });
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') void this.reload();
+        else saveList(this.listId);
       });
       onReconnect(() => void this.reload());
       await this.reload();
@@ -44,7 +47,8 @@ export function listPage() {
     async reload() {
       try {
         const [, found] = await Promise.all([loadUsers(), loadList(this.listId)]);
-        if (!found) goTo('/');
+        if (found) saveList(this.listId);
+        else goTo('/');
       } catch {
         // Offline or a server error: the page keeps what it already shows.
       } finally {

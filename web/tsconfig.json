@@ -1,5 +1,6 @@
 {
   "extends": "astro/tsconfigs/strict",
   "include": [".astro/types.d.ts", "**/*"],
-  "exclude": ["dist"]
+  // The service worker runs with the WebWorker library, which clashes with the DOM one.
+  "exclude": ["dist", "src/sw.ts"]
 }

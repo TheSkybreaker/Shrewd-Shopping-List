@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -58,6 +59,11 @@ func (c config) missingVariables() []string {
 }
 
 func main() {
+	// Go does not know the web app manifest extension and would serve it as text/plain.
+	if err := mime.AddExtensionType(".webmanifest", "application/manifest+json"); err != nil {
+		log.Fatal(err)
+	}
+
 	cfg, err := loadConfig()
 	if err != nil {
 		log.Fatal(err)
