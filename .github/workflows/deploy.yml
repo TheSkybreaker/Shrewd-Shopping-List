@@ -1,0 +1,77 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Test and build the frontend
+        working-directory: web
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm test
+          pnpm build
+
+      # The commit becomes the version: `spesa --version` on the server tells what is live.
+      - name: Test and build the binary
+        working-directory: backend
+        run: |
+          go vet ./...
+          go test ./...
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -tags embed -trimpath \
+            -ldflags "-s -w -X github.com/pocketbase/pocketbase.Version=$GITHUB_SHA" -o spesa .
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: spesa
+          path: backend/spesa
+          retention-days: 7
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: spesa
+
+      # The key can only run the deploy script on the server, which reads the binary from stdin
+      # and checks it against the SHA-256 passed as the command.
+      - name: Deploy via SSH
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$KNOWN_HOSTS" >> ~/.ssh/known_hosts
+          ssh -i ~/.ssh/id_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "$(sha256sum spesa | cut -d' ' -f1)" < spesa

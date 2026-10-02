@@ -8,7 +8,7 @@ Spesa è una PWA mobile first per una lista della spesa condivisa tra due person
 
 Obiettivi della v1:
 
-- Login con email e password, sessione che dura mesi.
+- Login con nome utente e password, sessione che dura mesi.
 - Liste per data con titolo facoltativo, divise in In programma e Passate.
 - Elementi con quantità facoltativa, spunta, eliminazione con annulla.
 - Aggiornamenti in tempo reale tra i due telefoni ad app aperta.
@@ -43,7 +43,7 @@ Un solo binario Go serve API e frontend statico sullo stesso dominio: niente COR
 | Client API | SDK JS `pocketbase` | Auth store in localStorage, realtime via SSE |
 | PWA | `@vite-pwa/astro` con strategia `injectManifest` | Service worker scritto a mano per push e click |
 | Font | Pacchetti Fontsource, self-hosted | Funzionano offline, niente Google Fonts a runtime |
-| Hosting | Piccolo VPS, Caddy davanti, systemd | HTTPS obbligatorio per service worker e push |
+| Hosting | Server personale `portfolio`, Caddy davanti, servizio systemd utente | HTTPS obbligatorio per service worker e push |
 
 Flusso di un'aggiunta: il telefono A crea un record in `items`. PocketBase lo salva, lo manda in realtime ai client connessi e lancia l'hook Go. L'hook invia una Web Push alle subscription del telefono B, Chrome la consegna al service worker di B, che mostra la notifica oppure la salta se l'app è in primo piano.
 
@@ -82,7 +82,7 @@ spesa/
       styles/          tokens.css, base.css
       sw.ts            service worker
     public/icons/      icone app e badge notifiche
-  deploy/              Caddyfile, spesa.service, script di backup
+  .github/workflows/   deploy.yml: test, build e deploy a ogni push su main
   docs/                DESIGN.md (questo documento), demo.html
 ```
 
@@ -96,6 +96,8 @@ Quattro collezioni. La data delle liste è testo `YYYY-MM-DD`, così un giorno r
 
 | Campo | Tipo | Note |
 |---|---|---|
+| username | text, obbligatorio, 3-20 caratteri, solo minuscole e cifre, indice unico | Unico campo per entrare insieme alla password |
+| email | email, facoltativa | Non usata: gli account non ne hanno |
 | name | text, obbligatorio, max 20 | Nome mostrato nell'app |
 | color | select: `sky`, `sun` | Colore dell'avatar, uno per persona |
 | avatar | file, facoltativo | Non usato nella v1: l'avatar è l'iniziale |
@@ -103,6 +105,7 @@ Quattro collezioni. La data delle liste è testo `YYYY-MM-DD`, così un giorno r
 - List e view: `@request.auth.id != ""` (serve per mostrare il nome dell'altra persona).
 - Update: `id = @request.auth.id`. Create e delete: bloccate.
 - Durata del token auth: 90 giorni.
+- Login con password: l'unico identity field è `username`.
 
 ### lists
 
@@ -149,10 +152,10 @@ Tutte le regole bloccate: la collezione la toccano solo le route custom e l'hook
 
 ## Autenticazione e sessione
 
-Due account creati a mano dalla dashboard admin; l'app ha solo il login.
+Due account creati una volta sul server, con nome utente e password generati; l'app ha solo il login.
 
-- Nessuna pagina di registrazione né di reset password nella v1: le password si gestiscono dalla dashboard.
-- Login con `authWithPassword`; in caso di errore, messaggio sotto il pulsante: Email o password non corretti.
+- Nessuna pagina di registrazione né di reset password nella v1: le password si cambiano dalla dashboard (`/_/`, collezione users, campo password).
+- Login con `authWithPassword` e il nome utente in minuscolo, perché la tastiera del telefono può mettere la maiuscola; in caso di errore, messaggio sotto il pulsante: Nome utente o password non corretti.
 - Lo store dell'SDK tiene il token in localStorage. All'avvio, se il token è valido, chiama `authRefresh()`; se fallisce, svuota lo store e vai a `/login`.
 - Guardie lato client: `/` e `/lista` senza sessione portano a `/login`; `/login` con sessione valida porta a `/`.
 - Esci: prima cancella la subscription push del dispositivo con `POST /api/push/unsubscribe`, poi `pb.authStore.clear()` e vai a `/login`.
@@ -240,12 +243,12 @@ Tre pagine e tre pannelli dal basso, con l'aspetto e i comportamenti della demo.
 
 | Vista | Contenuto | Azioni |
 |---|---|---|
-| Login (`/login`) | Logo, titolo Spesa grande, sottotitolo, email, password | Entra |
+| Login (`/login`) | Logo, titolo Spesa grande, sottotitolo, nome utente, password | Entra |
 | Home (`/`) | Saluto, riepilogo, card notifiche se spente, In programma (data da oggi in poi, crescente), Passate richiudibile (decrescente) | Apri lista, Nuova lista, profilo |
 | Lista (`/lista?id=`) | Pannello azzurro con giorno gigante, giorno della settimana, mese, pillola Oggi, Domani o Ieri, titolo e avanzamento; poi Da prendere e Nel carrello | Aggiungi, spunta, elimina, menu |
 | Pannello Nuova lista | Chip Oggi, Domani, Sabato (senza doppioni), selettore data, nome facoltativo | Crea lista: apre la lista con il focus sul campo |
 | Pannello Menu lista | Titolo e data della lista | Togli le cose già prese (n); Elimina la lista con secondo tocco di conferma |
-| Pannello Profilo | Avatar, nome modificabile, email, switch notifiche, Installa l'app | Esci |
+| Pannello Profilo | Avatar, nome modificabile, nome utente, switch notifiche, Installa l'app | Esci |
 
 - Riga in home: numero del giorno grande, giorno abbreviato, titolo, data relativa o estesa, barra di avanzamento, stato (N da prendere, Fatto, Vuota) e avatar di chi ha aggiunto elementi.
 - Elemento: cerchio di spunta, nome con pillola della quantità, sotto avatar e aggiunto da te o da {nome} (preso da, se spuntato), pulsante elimina. Da prendere in ordine di `added_at`, quindi un elemento rimesso dal carrello va in fondo; Nel carrello per `checked_at` decrescente, in un contenitore solo bordato.
@@ -306,7 +309,7 @@ Frasi brevi, iniziale maiuscola e il resto minuscolo, niente punti esclamativi; 
 | Dove | Testo |
 |---|---|
 | Login, sottotitolo | La lista della spesa di casa, aggiornata in tempo reale su tutti e due i telefoni. |
-| Login, errore | Email o password non corretti. |
+| Login, errore | Nome utente o password non corretti. |
 | Home, saluto | Ciao {nome} |
 | Home, riepilogo | {n} cose da prendere in {m} liste (al singolare: 1 cosa, 1 lista) |
 | Home, tutto preso | Avete preso tutto, per ora. |
@@ -328,16 +331,14 @@ Frasi brevi, iniziale maiuscola e il resto minuscolo, niente punti esclamativi; 
 
 ## Configurazione, sviluppo locale e deploy
 
-In sviluppo bastano un PC e un telefono via USB; in produzione un VPS con HTTPS.
+In sviluppo bastano un PC e un telefono via USB; in produzione il server `portfolio` con HTTPS su shopping.skybreaker.dev.
 
 | Variabile | Esempio | Note |
 |---|---|---|
 | VAPID_PUBLIC_KEY | generata | Si crea una volta con `go run . vapid` |
 | VAPID_PRIVATE_KEY | generata | Segreta, mai nel repository |
-| VAPID_SUBJECT | mailto:indirizzo di contatto | Richiesta dai push service |
+| VAPID_SUBJECT | indirizzo di contatto | Richiesto dai push service; anche un URL https. `mailto:` lo aggiunge `webpush-go` |
 | DEV | 1 | Abilita `/api/push/test` e l'automigrate |
-| SPESA_DOMAIN | dominio di produzione | Solo nell'ambiente di Caddy, per il `Caddyfile` |
-| BACKUP_DESTINATION | destinazione rsync | Solo sul VPS, per `deploy/backup.sh` |
 
 Il comando `vapid` stampa una coppia di chiavi con `webpush.GenerateVAPIDKeys()`. In locale le variabili stanno in un `.env` ignorato da git.
 
@@ -350,10 +351,13 @@ Il comando `vapid` stampa una coppia di chiavi con `webpush.GenerateVAPIDKeys()`
 
 ### Produzione
 
-1. `pnpm build` in `web/` scrive in `backend/pb_public`, poi `go build -tags embed` produce un unico binario con il frontend incorporato. Senza il tag il binario legge `pb_public` dal disco, come in sviluppo.
-2. Sul VPS binario, `.env` e `pb_data` stanno in `/opt/spesa`, con il servizio systemd `deploy/spesa.service` in ascolto su `127.0.0.1:8090`.
-3. Caddy fa da reverse proxy con HTTPS automatico (`deploy/Caddyfile`, dominio in `SPESA_DOMAIN`). Le impostazioni predefinite vanno bene per le connessioni SSE del realtime.
-4. Backup: i backup automatici di PocketBase, pianificati dalla dashboard, più una copia giornaliera fuori dal server con `deploy/backup.sh`, avviato da `spesa-backup.timer` alle 4:30.
+Il repository contiene solo il workflow; la configurazione del server vive sul server, nei percorsi qui sotto.
+
+1. Build: `pnpm build` in `web/` scrive in `backend/pb_public`, poi `go build -tags embed` produce un unico binario con il frontend incorporato. Senza il tag il binario legge `pb_public` dal disco, come in sviluppo.
+2. Deploy: a ogni push su `main` il workflow `Deploy` esegue test e build, poi manda il binario Linux via SSH con una chiave che può lanciare solo `~/bin/deploy-spesa.sh`. Lo script controlla lo SHA-256, salva il database in `predeploy.db`, sostituisce il binario, riavvia il servizio e rimette il binario precedente se `/api/health` non risponde. Il commit diventa la versione del binario: `/var/www/spesa/spesa --version` dice cosa è in produzione. Segreti del repository: `DEPLOY_SSH_KEY`, `DEPLOY_HOST`, `DEPLOY_PORT`, `DEPLOY_USER`, `DEPLOY_KNOWN_HOSTS`.
+3. Servizio: binario, `.env` e `pb_data` in `/var/www/spesa`, servizio systemd utente `~/.config/systemd/user/spesa.service` in ascolto su `127.0.0.1:8090`, con scrittura permessa solo in `pb_data`, home non leggibile e niente socket Unix, quindi niente accesso a docker. Le migrazioni partono da sole all'avvio.
+4. Caddy: blocco `shopping.skybreaker.dev` in `/etc/caddy/Caddyfile` con `reverse_proxy` e compressione esclusa per `/api/*`, così le connessioni SSE del realtime arrivano subito. PocketBase si fida di `X-Forwarded-For` e limita i tentativi di login (migrazione `proxy_and_rate_limits`).
+5. Backup: `~/bin/spesa-backup.sh`, avviato ogni notte alle 3:45 da `spesa-backup.timer`, fa uno snapshot di `data.db`, lo cifra con age (la stessa chiave del backup di Directus, la cui identità privata sta solo sul Mac) e lo carica su Google Drive in `Backups/spesa`. Le istruzioni di ripristino sono in testa allo script.
 
 ## Milestone e criteri di accettazione
 
@@ -391,15 +395,15 @@ Cinque milestone in sequenza; ognuna è finita quando tutte le sue caselle sono 
 
 ### 5. Deploy
 
-- [x] Caddyfile, `spesa.service` e script di backup in `deploy/`
+- [ ] Online su shopping.skybreaker.dev, con deploy automatico da GitHub Actions e backup cifrato giornaliero
 - [ ] App installata su entrambi i telefoni dal dominio di produzione, giro completo di prova
 
 ## Fuori perimetro e decisioni aperte
 
-Restano due scelte da chiudere prima di partire; il resto aspetta la v2.
+Le scelte per la v1 sono chiuse; il resto aspetta la v2.
 
 - [x] Interattività: Alpine.js
-- [ ] Dominio e VPS di produzione
-- [ ] Nomi mostrati e colore (sky o sun) dei due account
+- [x] Dominio e server: shopping.skybreaker.dev sul server `portfolio`
+- [x] Account: Vittorio (`vittorio`, sky) e Martina (`martina`, sun)
 
 Dopo la v1: modifiche offline con coda di sincronizzazione, notifica alla creazione di una lista, ordinamento per reparto, elementi ricorrenti. Per un eventuale telefono Jolla, dove le Web Push difficilmente funzionano, l'hook potrebbe mandare anche un POST a un topic privato di ntfy, la cui app Android funziona senza servizi Google.

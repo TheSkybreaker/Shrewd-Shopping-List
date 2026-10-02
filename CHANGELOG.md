@@ -1,5 +1,10 @@
 # Changelog
 
+## Production
+
+- Sign in with a username instead of an email (lowercased on the login page), trusted `X-Forwarded-For` from Caddy and PocketBase rate limits on, and `VAPID_SUBJECT` accepted with or without `mailto:`.
+- GitHub Actions workflow that tests, builds and deploys every push to `main` to shopping.skybreaker.dev; the `deploy/` folder is gone and the server configuration lives on the server, described in `docs/DESIGN.md`.
+
 ## Milestone 5: deploy
 
 - `go build -tags embed` compiles the frontend into the binary; without the tag, development keeps reading `pb_public` from disk.
