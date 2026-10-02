@@ -1,0 +1,27 @@
+---
+import '@fontsource-variable/bricolage-grotesque/opsz.css';
+import '@fontsource/atkinson-hyperlegible/latin-400.css';
+import '@fontsource/atkinson-hyperlegible/latin-700.css';
+import '../styles/tokens.css';
+import '../styles/base.css';
+import type { PageName } from '../lib/auth';
+
+interface Props {
+  page: PageName;
+}
+
+const { page } = Astro.props;
+---
+
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#3AA6E8" />
+    <title>Spesa</title>
+  </head>
+  <body data-page={page}>
+    <slot />
+  </body>
+</html>

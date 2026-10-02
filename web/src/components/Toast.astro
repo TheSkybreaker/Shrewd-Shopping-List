@@ -1,0 +1,6 @@
+<div class="toast" :class="{ 'is-on': $store.toast.visible }" role="status" aria-live="polite">
+  <div class="toast-pill">
+    <span x-text="$store.toast.message"></span>
+    <button type="button" class="toast-act" x-show="$store.toast.actionLabel" x-text="$store.toast.actionLabel" @click="$store.toast.act()"></button>
+  </div>
+</div>

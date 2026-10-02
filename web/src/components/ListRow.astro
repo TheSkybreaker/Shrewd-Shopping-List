@@ -1,0 +1,20 @@
+---
+import Avatar from './Avatar.astro';
+---
+
+<li>
+  <a class="row" :class="{ 'is-done': row.done }" :href="row.url" @click.prevent="open(row.url)">
+    <span class="tile" aria-hidden="true"><span class="tile-d" x-text="row.day"></span><span class="tile-w" x-text="row.weekday"></span></span>
+    <span class="row-main">
+      <span class="row-title" x-text="row.title"></span>
+      <span class="row-sub" x-text="row.date"></span>
+      <span class="bar" aria-hidden="true"><i :style="`width: ${row.percent}%`"></i></span>
+    </span>
+    <span class="row-end">
+      <span class="row-status" x-text="row.status"></span>
+      <span class="stack">
+        <template x-for="person in row.people" :key="person"><Avatar user="person" size="xs" /></template>
+      </span>
+    </span>
+  </a>
+</li>

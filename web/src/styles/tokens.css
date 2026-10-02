@@ -1,0 +1,14 @@
+/* The app has only the dark theme, whatever the system setting. */
+:root {
+  --bg: #071622; --paper: #0E2233; --ink: #E3F2FC; --ink-2: #8FB0C6; --line: #1D3B52;
+  --panel: #2F95D4; --panel-ink: #04192A;
+  --accent: #3AA6E8; --accent-text: #7FCBF7; --accent-soft: #12324A;
+  --btn: #3AA6E8; --btn-ink: #04192A;
+  --sun: #F7C23A; --sun-soft: #3A3010; --sun-ink: #2B1F00;
+  --danger: #FF8A80; --accent-on-ink: #1677C9; --ring: #7FCBF7;
+  --live: #2FBF71; --idle: #5E7A8E;
+  --shadow: 0 1px 0 rgba(0, 0, 0, .25), 0 12px 28px -16px rgba(0, 0, 0, .8);
+  --font-d: "Bricolage Grotesque Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-b: "Atkinson Hyperlegible", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: dark;
+}

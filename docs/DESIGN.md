@@ -13,7 +13,7 @@ Obiettivi della v1:
 - Elementi con quantità facoltativa, spunta, eliminazione con annulla.
 - Aggiornamenti in tempo reale tra i due telefoni ad app aperta.
 - Notifiche push di sistema ad app chiusa, solo per le aggiunte fatte dall'altra persona.
-- Installabile da Chrome su Android, interfaccia azzurra, tema chiaro e scuro.
+- Installabile da Chrome su Android, interfaccia azzurra, solo tema scuro.
 
 Non obiettivi della v1: registrazione pubblica, più nuclei familiari, iOS, modifiche offline con coda di sincronizzazione, categorie o reparti.
 
@@ -127,6 +127,7 @@ Quattro collezioni. La data delle liste è testo `YYYY-MM-DD`, così un giorno r
 | checked_at | date | Ordina la sezione Nel carrello |
 | added_by | relation a users, obbligatorio |  |
 | checked_by | relation a users | Vuoto quando non è spuntato |
+| added_at | date | Quando è stato aggiunto o rimesso tra le cose da prendere; ordina Da prendere |
 | created, updated | autodate |  |
 
 - List, view, delete: `@request.auth.id != ""`.
@@ -166,7 +167,7 @@ Il realtime allinea i due telefoni ad app aperta; le notifiche push servono solo
 - Applica gli eventi in modo idempotente, con upsert per id: l'eco delle proprie modifiche non deve creare doppioni.
 - Modifiche ottimistiche: la UI cambia subito, poi parte la chiamata. Se fallisce, torna allo stato precedente con il toast Non salvato, riprova.
 - Indicatore nella barra in alto: punto verde con In tempo reale se la connessione SSE è attiva, punto grigio con Offline se è caduta. Usa `PB_CONNECT` e `pb.realtime.onDisconnect`.
-- Quando l'app torna in primo piano (`visibilitychange`), ricarica i dati della vista corrente.
+- Quando l'app torna in primo piano (`visibilitychange`) e quando il realtime si riconnette, ricarica i dati della vista corrente: gli eventi persi durante l'interruzione non arrivano più.
 - Gli elementi aggiunti dall'altra persona compaiono con l'evidenziazione gialla della demo, per 1,5 secondi.
 
 ## Notifiche push
@@ -225,13 +226,13 @@ Payload, sotto i 4 KB:
 
 L'app si installa da Chrome come WebAPK, si apre anche offline in sola lettura e si aggiorna da sola.
 
-- Manifest: name e short_name Spesa, `lang` it, `start_url` e `scope` `/`, `display` standalone, `orientation` portrait, `background_color` #EAF5FC, `theme_color` #3AA6E8.
+- Manifest: name e short_name Spesa, `lang` it, `start_url` e `scope` `/`, `display` standalone, `orientation` portrait, `background_color` #071622, `theme_color` #3AA6E8.
 - Icone: 192 e 512 px, più una 512 px maskable con il cestino su fondo azzurro e margine di sicurezza del 20%. Badge per le notifiche: 96 px monocromatico.
 - Precache dell'app shell (HTML, CSS, JS, font, icone) con Workbox tramite `injectManifest`. Le chiamate a `/api/*` non passano mai dalla cache.
 - Offline: l'app mostra l'ultimo stato letto, salvato in localStorage per ogni vista, con il banner Sei offline, le modifiche sono in pausa. Campo di inserimento e azioni restano disattivati finché torna la rete.
 - Nuova versione del service worker: toast Nuova versione disponibile con azione Aggiorna, che fa `skipWaiting` e ricarica.
 - Installazione: intercetta `beforeinstallprompt` e mostra Installa l'app nel profilo finché l'app non risulta installata.
-- Head: `viewport-fit=cover`, safe area gestite come nella demo, `theme-color` distinto per tema chiaro e scuro con l'attributo `media`.
+- Head: `viewport-fit=cover`, safe area gestite come nella demo, `theme-color` #3AA6E8 come nella demo.
 
 ## Interfaccia: schermate e comportamenti
 
@@ -247,7 +248,7 @@ Tre pagine e tre pannelli dal basso, con l'aspetto e i comportamenti della demo.
 | Pannello Profilo | Avatar, nome modificabile, email, switch notifiche, Installa l'app | Esci |
 
 - Riga in home: numero del giorno grande, giorno abbreviato, titolo, data relativa o estesa, barra di avanzamento, stato (N da prendere, Fatto, Vuota) e avatar di chi ha aggiunto elementi.
-- Elemento: cerchio di spunta, nome con pillola della quantità, sotto avatar e aggiunto da te o da {nome} (preso da, se spuntato), pulsante elimina. Da prendere in ordine di creazione; Nel carrello per `checked_at` decrescente, in un contenitore solo bordato.
+- Elemento: cerchio di spunta, nome con pillola della quantità, sotto avatar e aggiunto da te o da {nome} (preso da, se spuntato), pulsante elimina. Da prendere in ordine di `added_at`, quindi un elemento rimesso dal carrello va in fondo; Nel carrello per `checked_at` decrescente, in un contenitore solo bordato.
 - Barra di inserimento fissa in basso: fino a 7 chip di suggerimento, il campo Aggiungi, es. 2 latte e il pulsante +. Dopo l'invio il campo si svuota e tiene il focus, così la tastiera resta aperta.
 - Suggerimenti, in quest'ordine, esclusi quelli già da prendere: Latte, Pane, Uova, Acqua, Frutta, Caffè, Pasta, Insalata, Burro, Carta igienica, Pomodori, Yogurt.
 
@@ -272,26 +273,26 @@ Unità riconosciute: g, kg, ml, l, pz. Spazi multipli compressi, prima lettera m
 
 ## Design system
 
-Azzurro come colore principale, giallo solo per la seconda persona e per evidenziare le novità; il numero gigante del giorno è l'unico elemento audace. I token vanno in `styles/tokens.css` come custom properties su `:root`, con il tema scuro sotto `prefers-color-scheme` e gli override `:root[data-theme]`.
+Azzurro come colore principale, giallo solo per la seconda persona e per evidenziare le novità; il numero gigante del giorno è l'unico elemento audace. I token vanno in `styles/tokens.css` come custom properties su `:root`. L'app ha solo il tema scuro, qualunque sia l'impostazione del telefono.
 
-| Token | Chiaro | Scuro | Uso |
-|---|---|---|---|
-| --bg | #EAF5FC | #071622 | Sfondo pagina |
-| --paper | #FFFFFF | #0E2233 | Superfici e pannelli dal basso |
-| --ink | #0E3550 | #E3F2FC | Testo |
-| --ink-2 | #4F7189 | #8FB0C6 | Testo secondario |
-| --line | #D5E7F3 | #1D3B52 | Divisori e bordi |
-| --panel | #3AA6E8 | #2F95D4 | Pannello della lista, icona app |
-| --panel-ink | #06283F | #04192A | Testo sul pannello |
-| --accent | #2A93D6 | #3AA6E8 | Spunte e barre |
-| --accent-text | #1673B8 | #7FCBF7 | Testo azzurro e focus |
-| --accent-soft | #DBEFFC | #12324A | Fondi tenui |
-| --btn | #1677C9 | #3AA6E8 | Pulsanti primari, avatar persona sky |
-| --btn-ink | #FFFFFF | #04192A | Testo sui pulsanti |
-| --sun | #F7B500 | #F7C23A | Avatar persona sun |
-| --sun-soft | #FFF0C2 | #3A3010 | Evidenziazione delle novità |
-| --sun-ink | #3D2C00 | #2B1F00 | Testo sull'avatar giallo |
-| --danger | #C23B34 | #FF8A80 | Eliminazione |
+| Token | Valore | Uso |
+|---|---|---|
+| --bg | #071622 | Sfondo pagina |
+| --paper | #0E2233 | Superfici e pannelli dal basso |
+| --ink | #E3F2FC | Testo |
+| --ink-2 | #8FB0C6 | Testo secondario |
+| --line | #1D3B52 | Divisori e bordi |
+| --panel | #2F95D4 | Pannello della lista, icona app |
+| --panel-ink | #04192A | Testo sul pannello |
+| --accent | #3AA6E8 | Spunte e barre |
+| --accent-text | #7FCBF7 | Testo azzurro e focus |
+| --accent-soft | #12324A | Fondi tenui |
+| --btn | #3AA6E8 | Pulsanti primari, avatar persona sky |
+| --btn-ink | #04192A | Testo sui pulsanti |
+| --sun | #F7C23A | Avatar persona sun |
+| --sun-soft | #3A3010 | Evidenziazione delle novità |
+| --sun-ink | #2B1F00 | Testo sull'avatar giallo |
+| --danger | #FF8A80 | Eliminazione |
 
 - Tipografia: Bricolage Grotesque 600 e 800 per titoli, numeri dei giorni e avatar; Atkinson Hyperlegible 400 e 700 per tutto il resto. Base 17 px, nomi degli elementi 18 px, numero del pannello `clamp(100px, 32vw, 136px)` con interlinea 0.76.
 - Misure: colonna larga al massimo 480 px con margini di 18 px. Raggi: 28 pannelli, 22 gruppi, 18 campo e pulsante +, 15 pulsanti, pillole tonde. Target di tocco minimo 44 px; campo e pulsante + alti 56 px, Nuova lista 58 px.
@@ -341,13 +342,13 @@ Il comando `vapid` stampa una coppia di chiavi con `webpush.GenerateVAPIDKeys()`
 ### Sviluppo
 
 1. `go run . serve` avvia PocketBase su `:8090`; la dashboard è su `/_/` e lì si creano i due utenti.
-2. `npm run dev` in `web/` avvia Astro su `:4321`, con un proxy Vite da `/api` verso `:8090`: il client usa sempre lo stesso origin.
+2. `pnpm dev` in `web/` avvia Astro su `:4321`, con un proxy Vite da `/api` verso `:8090`: il client usa sempre lo stesso origin.
 3. `@vite-pwa/astro` con `devOptions` attivi, per avere il service worker anche in sviluppo.
 4. Telefono via USB: `chrome://inspect` sul PC con port forwarding della porta 4321. Sul telefono `localhost` è un contesto sicuro, quindi service worker e push funzionano senza HTTPS.
 
 ### Produzione
 
-1. `npm run build` in `web/` scrive in `backend/pb_public`, poi `go build` produce un unico binario.
+1. `pnpm build` in `web/` scrive in `backend/pb_public`, poi `go build` produce un unico binario.
 2. Sul VPS binario e `pb_data` stanno in `/opt/spesa`, con il servizio systemd `spesa.service` in ascolto su `127.0.0.1:8090`.
 3. Caddy fa da reverse proxy con HTTPS automatico. Le impostazioni predefinite vanno bene per le connessioni SSE del realtime.
 4. Backup: i backup automatici di PocketBase, pianificati dalla dashboard, più una copia giornaliera fuori dal server.
@@ -365,12 +366,12 @@ Cinque milestone in sequenza; ognuna è finita quando tutte le sue caselle sono 
 
 ### 2. Frontend base
 
-- [ ] Astro statico con build in `pb_public`, token, font self-hosted, integrazione Alpine con gli store
-- [ ] Login, guardie delle pagine, logout
-- [ ] Home con i due gruppi, pannello Nuova lista, dettaglio con aggiunta, spunta, eliminazione e annulla
-- [ ] Parser della quantità con test unitari su tutti i casi della tabella
-- [ ] Realtime: due browser con utenti diversi si vedono a vicenda entro 1 secondo
-- [ ] Confronto visivo con `docs/demo.html` su un telefono, in tema chiaro e scuro
+- [x] Astro statico con build in `pb_public`, token, font self-hosted, integrazione Alpine con gli store
+- [x] Login, guardie delle pagine, logout
+- [x] Home con i due gruppi, pannello Nuova lista, dettaglio con aggiunta, spunta, eliminazione e annulla
+- [x] Parser della quantità con test unitari su tutti i casi della tabella
+- [x] Realtime: due browser con utenti diversi si vedono a vicenda entro 1 secondo
+- [ ] Confronto visivo con `docs/demo.html` su un telefono, in tema scuro
 
 ### 3. PWA
 

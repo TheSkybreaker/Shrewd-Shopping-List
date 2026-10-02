@@ -1,0 +1,24 @@
+---
+interface Props {
+  // Alpine expressions: whether the sheet is open, and how to close it.
+  open: string;
+  close: string;
+  label: string;
+}
+
+const { open, close, label } = Astro.props;
+---
+
+<div
+  class="sheet"
+  role="dialog"
+  aria-modal="true"
+  aria-label={label}
+  tabindex="-1"
+  :class={`{ 'is-on': ${open} }`}
+  x-trap.inert.noscroll={open}
+  @keydown.escape.window={`if (${open}) ${close}`}
+>
+  <div class="grab" aria-hidden="true"></div>
+  <slot />
+</div>

@@ -1,0 +1,11 @@
+---
+interface Props {
+  // Alpine expression that evaluates to the user id.
+  user: string;
+  size: 'xs' | 'md' | 'xl';
+}
+
+const { user, size } = Astro.props;
+---
+
+<span class={`av ${size}`} :class={`$store.session.avatarClass(${user})`} x-text={`$store.session.initial(${user})`} aria-hidden="true"></span>

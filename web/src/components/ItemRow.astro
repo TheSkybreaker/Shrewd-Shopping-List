@@ -1,0 +1,15 @@
+---
+import Avatar from './Avatar.astro';
+import Icon from './Icon.astro';
+---
+
+<li class="item" :class="itemClass(item)" :data-id="item.id">
+  <button type="button" class="item-toggle" :aria-pressed="item.checked" @click="toggle(item)">
+    <span class="check" aria-hidden="true"><Icon name="check" /></span>
+    <span class="item-text">
+      <span class="item-name"><span x-text="item.name"></span> <span class="qty" x-show="item.qty" x-text="quantity(item.qty)"></span></span>
+      <span class="item-meta"><Avatar user="meta(item).userId" size="xs" /><span x-text="meta(item).text"></span></span>
+    </span>
+  </button>
+  <button type="button" class="del" :aria-label="`Elimina ${item.name}`" @click="remove(item)"><Icon name="x" /></button>
+</li>

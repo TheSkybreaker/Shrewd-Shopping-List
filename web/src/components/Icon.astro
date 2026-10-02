@@ -1,0 +1,19 @@
+---
+// Stroke icons from the demo.
+const paths = {
+  basket: '<path d="M4.5 10h15l-1.5 8.2a2 2 0 0 1-2 1.8H8a2 2 0 0 1-2-1.8z"/><path d="M8.5 10 12 4.5 15.5 10"/><path d="M10 13.5v3M14 13.5v3"/>',
+  back: '<path d="M15 18l-6-6 6-6"/>',
+  more: '<circle cx="5" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="19" cy="12" r="1.4" fill="currentColor"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  check: '<path d="M5 12.5l4.2 4.2L19 7"/>',
+  x: '<path d="M6 6l12 12M18 6L6 18"/>',
+};
+
+interface Props {
+  name: keyof typeof paths;
+}
+
+const { name } = Astro.props;
+---
+
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={paths[name]} />

@@ -1,0 +1,90 @@
+---
+import Icon from '../components/Icon.astro';
+import ItemRow from '../components/ItemRow.astro';
+import LiveIndicator from '../components/LiveIndicator.astro';
+import Page from '../components/Page.astro';
+import Sheet from '../components/Sheet.astro';
+import Toast from '../components/Toast.astro';
+---
+
+<Page page="list">
+  <div class="app" x-data="listPage" x-cloak>
+    <header class="top">
+      <button type="button" class="icon-btn" aria-label="Torna alle liste" @click="back()"><Icon name="back" /></button>
+      <LiveIndicator />
+      <button type="button" class="icon-btn" aria-label="Altre azioni sulla lista" @click="openMenu()"><Icon name="more" /></button>
+    </header>
+
+    <main class="list" x-show="loaded && list">
+      <section class="panel">
+        <div class="panel-date">
+          <span class="panel-num" aria-hidden="true" x-text="day"></span>
+          <span class="panel-wd">
+            <em x-show="relative" x-text="relative"></em><span x-text="weekday"></span><span x-text="month"></span>
+          </span>
+        </div>
+        <h1 class="panel-title" x-text="list?.title"></h1>
+        <p class="panel-sub" x-text="progressText"></p>
+        <div class="panel-bar" aria-hidden="true"><i :style="`width: ${progress.percent}%`"></i></div>
+      </section>
+
+      <div class="empty in-list" x-show="!progress.total">
+        <p>La lista è vuota. Scrivi qui sotto la prima cosa da prendere.</p>
+      </div>
+      <div class="empty in-list" x-show="progress.total && !progress.toBuy"><p>Avete preso tutto.</p></div>
+
+      <ul class="items" x-show="groups.toBuy.length">
+        <template x-for="item in groups.toBuy" :key="item.id"><ItemRow /></template>
+      </ul>
+      <h2 class="cart-h" x-show="groups.inCart.length">Nel carrello <span x-text="groups.inCart.length"></span></h2>
+      <ul class="items is-cart" x-show="groups.inCart.length">
+        <template x-for="item in groups.inCart" :key="item.id"><ItemRow /></template>
+      </ul>
+    </main>
+
+    <div class="composer-wrap" x-data="composer(listId)">
+      <div class="composer">
+        <div class="chips" role="group" aria-label="Aggiunte rapide">
+          <template x-for="name in chips" :key="name">
+            <button type="button" class="chip" @click="addSuggestion(name)"><Icon name="plus" /><span x-text="name"></span></button>
+          </template>
+        </div>
+        <form class="add" autocomplete="off" @submit.prevent="submit(); $refs.input.focus({ preventScroll: true })">
+          <input
+            x-ref="input"
+            type="text"
+            x-model="text"
+            placeholder="Aggiungi, es. 2 latte"
+            aria-label="Cosa serve?"
+            enterkeyhint="send"
+            x-init="focusComposer && $nextTick(() => $el.focus({ preventScroll: true }))"
+          />
+          <button class="add-btn" type="submit" aria-label="Aggiungi alla lista"><Icon name="plus" /></button>
+        </form>
+      </div>
+    </div>
+
+    <div class="backdrop" :class="{ 'is-on': sheet }" @click="sheet = null"></div>
+
+    <Sheet open="sheet === 'menu'" close="sheet = null" label="Azioni sulla lista">
+      <h2 class="sh-title" tabindex="-1" autofocus x-text="list?.title"></h2>
+      <p class="sh-sub" x-text="dateLine"></p>
+      <div class="menu">
+        <button
+          type="button"
+          class="menu-act"
+          :disabled="!groups.inCart.length"
+          @click="clearCart()"
+          x-text="groups.inCart.length ? `Togli le cose già prese (${groups.inCart.length})` : 'Togli le cose già prese'"></button>
+        <button
+          type="button"
+          class="menu-act danger"
+          :class="{ 'is-armed': confirmDelete }"
+          @click="deleteList()"
+          x-text="confirmDelete ? 'Tocca di nuovo per eliminare' : 'Elimina la lista'"></button>
+      </div>
+    </Sheet>
+
+    <Toast />
+  </div>
+</Page>

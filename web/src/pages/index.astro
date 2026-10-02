@@ -1,0 +1,98 @@
+---
+import Avatar from '../components/Avatar.astro';
+import Icon from '../components/Icon.astro';
+import ListRow from '../components/ListRow.astro';
+import LiveIndicator from '../components/LiveIndicator.astro';
+import Page from '../components/Page.astro';
+import Sheet from '../components/Sheet.astro';
+import Toast from '../components/Toast.astro';
+---
+
+<Page page="home">
+  <div class="app" x-data="homePage" x-cloak>
+    <header class="top">
+      <div class="brand"><span class="brand-mark"><Icon name="basket" /></span><span>Spesa</span></div>
+      <div class="top-actions">
+        <LiveIndicator />
+        <button type="button" class="av-btn" aria-label="Profilo" @click="openProfile()">
+          <Avatar user="$store.session.me?.id" size="md" />
+        </button>
+      </div>
+    </header>
+
+    <main class="home">
+      <section class="hello">
+        <h1 x-text="greeting"></h1>
+        <p x-show="loaded" x-text="summary"></p>
+      </section>
+
+      <div x-show="loaded">
+        <template x-if="groups.upcoming.length">
+          <section>
+            <h2 class="group">In programma</h2>
+            <ul class="rows">
+              <template x-for="row in rows(groups.upcoming)" :key="row.id"><ListRow /></template>
+            </ul>
+          </section>
+        </template>
+        <template x-if="!groups.upcoming.length">
+          <div class="empty"><p x-text="`Crea una lista per la prossima spesa: ${partnerName} la vede subito.`"></p></div>
+        </template>
+
+        <section class="past" x-show="groups.past.length">
+          <button type="button" class="past-toggle" :aria-expanded="pastOpen" @click="pastOpen = !pastOpen">
+            Passate <span x-text="groups.past.length"></span>
+          </button>
+          <ul class="rows" x-show="pastOpen" x-collapse>
+            <template x-for="row in rows(groups.past)" :key="row.id"><ListRow /></template>
+          </ul>
+        </section>
+      </div>
+    </main>
+
+    <div class="fab-wrap">
+      <div class="fab-in">
+        <button type="button" class="fab" @click="openNewList()"><Icon name="plus" /><span>Nuova lista</span></button>
+      </div>
+    </div>
+
+    <div class="backdrop" :class="{ 'is-on': sheet }" @click="sheet = null"></div>
+
+    <Sheet open="sheet === 'newList'" close="sheet = null" label="Nuova lista">
+      <form @submit.prevent="submitNewList()">
+        <h2 class="sh-title" tabindex="-1" autofocus>Nuova lista</h2>
+        <div class="quick" role="group" aria-label="Scegli il giorno">
+          <template x-for="day in days" :key="day.date">
+            <button
+              type="button"
+              class="chip"
+              :class="{ 'is-on': newListDate === day.date }"
+              :aria-pressed="newListDate === day.date"
+              @click="newListDate = day.date"
+              x-text="day.label"></button>
+          </template>
+        </div>
+        <label class="field">Giorno<input type="date" x-model="newListDate" required /></label>
+        <label class="field">
+          <span>Nome <small>facoltativo</small></span>
+          <input x-model="newListTitle" placeholder="Es. Esselunga, cena di venerdì" maxlength="40" />
+        </label>
+        <button type="submit" class="btn primary wide" :disabled="creating">Crea lista</button>
+      </form>
+    </Sheet>
+
+    <Sheet open="sheet === 'profile'" close="sheet = null" label="Profilo">
+      <div class="sh-head">
+        <Avatar user="$store.session.me?.id" size="xl" />
+        <div>
+          <h2 tabindex="-1" autofocus x-text="$store.session.me?.name"></h2>
+          <p x-text="$store.session.me?.email"></p>
+        </div>
+      </div>
+      <label class="field">Il tuo nome<input x-model="nameDraft" maxlength="20" required @change="saveName()" /></label>
+      <button type="button" class="btn ghost wide" @click="logout()">Esci</button>
+    </Sheet>
+
+    <Toast />
+  </div>
+</Page>
