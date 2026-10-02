@@ -46,13 +46,9 @@ export function onReconnect(listener: () => void) {
 export function trackConnection() {
   let connectedBefore = false;
   void pb.realtime.subscribe('PB_CONNECT', () => {
-    session().live = true;
     if (connectedBefore) reconnectListeners.forEach((listener) => listener());
     connectedBefore = true;
   });
-  pb.realtime.onDisconnect = () => {
-    session().live = false;
-  };
 }
 
 // Upsert by id, so the echo of the user's own change never creates a duplicate.

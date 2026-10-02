@@ -23,10 +23,6 @@ input { font: inherit; color: inherit }
 .av-btn { border-radius: 50%; display: grid }
 
 /* realtime indicator */
-.live { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--ink-2) }
-.live i { width: 8px; height: 8px; border-radius: 50%; background: var(--idle) }
-.live.is-on i { background: var(--live); animation: pulse 2.4s infinite }
-@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(47, 191, 113, .45) } 70% { box-shadow: 0 0 0 8px rgba(47, 191, 113, 0) } 100% { box-shadow: 0 0 0 0 rgba(47, 191, 113, 0) } }
 
 /* avatars */
 .av { display: inline-grid; place-items: center; border-radius: 50%; font-family: var(--font-d); font-weight: 800; line-height: 1; flex: none }
@@ -152,7 +148,6 @@ input { font: inherit; color: inherit }
 .notif-card p { margin: 2px 0 0; color: var(--ink-2); font-size: 15px }
 .setting { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin-bottom: 18px }
 .setting b { display: block }
-.setting span { font-size: 14px; color: var(--ink-2) }
 .switch { width: 52px; height: 32px; border-radius: 999px; background: var(--line); position: relative; flex: none; transition: background .2s }
 .switch i { position: absolute; top: 3px; left: 3px; width: 26px; height: 26px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .3); transition: transform .2s }
 .switch[aria-checked="true"] { background: var(--btn) }

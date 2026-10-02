@@ -137,9 +137,6 @@ input{font:inherit;color:inherit}
 /* list */
 .icon-btn{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:var(--paper);box-shadow:var(--shadow)}
 .icon-btn svg{width:22px;height:22px}
-.live{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--ink-2)}
-.live i{width:8px;height:8px;border-radius:50%;background:#2FBF71;animation:pulse 2.4s infinite}
-@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(47,191,113,.45)}70%{box-shadow:0 0 0 8px rgba(47,191,113,0)}100%{box-shadow:0 0 0 0 rgba(47,191,113,0)}}
 .list{padding-bottom:220px}
 .panel{background:var(--panel);color:var(--panel-ink);border-radius:28px;padding:22px 22px 22px;margin:4px 0 22px}
 .panel-date{display:flex;align-items:flex-end;gap:14px}
@@ -227,7 +224,6 @@ body[data-view="list"] .toast{bottom:calc(160px + env(safe-area-inset-bottom, 0p
 .sh-head p{margin:0;color:var(--ink-2);font-size:15px}
 .setting{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-bottom:18px}
 .setting b{display:block}
-.setting span{font-size:14px;color:var(--ink-2)}
 .switch{width:52px;height:32px;border-radius:999px;background:var(--line);position:relative;flex:none;transition:background .2s}
 .switch i{position:absolute;top:3px;left:3px;width:26px;height:26px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .2s}
 .switch[aria-checked="true"]{background:var(--btn)}
@@ -383,7 +379,7 @@ function homeView() {
     ${S.notif ? '' : notifCard()}
     ${up.length
       ? `<h2 class="group">In programma</h2><ul class="rows">${up.map(row).join('')}</ul>`
-      : `<div class="empty"><p>Crea una lista per la prossima spesa: ${esc(nameOf(other()))} la vede subito.</p></div>`}
+      : `<div class="empty"><p>Crea una lista per la prossima spesa</p></div>`}
     ${pa.length ? `<details class="past"${ui.pastOpen ? ' open' : ''}><summary>Passate <span>${pa.length}</span></summary><ul class="rows">${pa.map(row).join('')}</ul></details>` : ''}
   </main>
   <div class="fab-wrap"><div class="fab-in"><button type="button" class="fab" data-act="newList">${I.plus}<span>Nuova lista</span></button></div></div>`;
@@ -392,7 +388,7 @@ function homeView() {
 function notifCard() {
   return `<aside class="notif-card">
     <span class="notif-ico">${I.bell}</span>
-    <div><b>Sappi subito cosa manca</b><p>Ricevi una notifica quando ${esc(nameOf(other()))} aggiunge qualcosa, anche con l'app chiusa.</p></div>
+    <div><b>Scopri subito cosa manca</b><p>Ricevi una notifica quando ${esc(nameOf(other()))} aggiunge qualcosa, anche con l'app chiusa.</p></div>
     <button type="button" class="btn small" data-act="enableNotif">Attiva notifiche</button>
   </aside>`;
 }
@@ -419,7 +415,6 @@ function listView() {
   return `
   <header class="top">
     <button type="button" class="icon-btn" data-act="back" aria-label="Torna alle liste">${I.back}</button>
-    <span class="live"><i aria-hidden="true"></i>In tempo reale</span>
     <button type="button" class="icon-btn" data-act="listMenu" aria-label="Altre azioni sulla lista">${I.more}</button>
   </header>
   <main class="list">
@@ -668,7 +663,7 @@ function profileSheet() {
   const me = S.me, o = other();
   return `<div class="sh-head">${av(me, 'xl')}<div><h2>${esc(nameOf(me))}</h2><p>${esc(emailOf(me))}</p></div></div>
   <div class="setting">
-    <div><b>Notifiche</b><span>Quando ${esc(nameOf(o))} aggiunge qualcosa</span></div>
+    <div><b>Notifiche</b></div>
     <button type="button" class="switch" role="switch" aria-checked="${S.notif}" aria-label="Notifiche" data-act="toggleNotif"><i></i></button>
   </div>
   <div class="field-grid">

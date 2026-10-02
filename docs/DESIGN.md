@@ -169,7 +169,6 @@ Il realtime allinea i due telefoni ad app aperta; le notifiche push servono solo
 - Dettaglio: sottoscrizione a `items` filtrata con `list = "<id>"` e al record della lista. Se l'altra persona elimina la lista, torna alla home con il toast Lista eliminata da {nome}.
 - Applica gli eventi in modo idempotente, con upsert per id: l'eco delle proprie modifiche non deve creare doppioni.
 - Modifiche ottimistiche: la UI cambia subito, poi parte la chiamata. Se fallisce, torna allo stato precedente con il toast Non salvato, riprova.
-- Indicatore nella barra in alto: punto verde con In tempo reale se la connessione SSE è attiva, punto grigio con Offline se è caduta. Usa `PB_CONNECT` e `pb.realtime.onDisconnect`.
 - Quando l'app torna in primo piano (`visibilitychange`) e quando il realtime si riconnette, ricarica i dati della vista corrente: gli eventi persi durante l'interruzione non arrivano più.
 - Gli elementi aggiunti dall'altra persona compaiono con l'evidenziazione gialla della demo, per 1,5 secondi.
 
@@ -300,7 +299,7 @@ Azzurro come colore principale, giallo solo per la seconda persona e per evidenz
 - Tipografia: Bricolage Grotesque 600 e 800 per titoli, numeri dei giorni e avatar; Atkinson Hyperlegible 400 e 700 per tutto il resto. Base 17 px, nomi degli elementi 18 px, numero del pannello `clamp(100px, 32vw, 136px)` con interlinea 0.76.
 - Misure: colonna larga al massimo 480 px con margini di 18 px. Raggi: 28 pannelli, 22 gruppi, 18 campo e pulsante +, 15 pulsanti, pillole tonde. Target di tocco minimo 44 px; campo e pulsante + alti 56 px, Nuova lista 58 px.
 - Accessibilità: focus visibile da 3 px in `--accent-text`, `aria-pressed` sugli elementi, campi con testo da almeno 16 px, `prefers-reduced-motion` che azzera le animazioni, testo con contrasto almeno 4,5:1.
-- Movimento solo in risposta alle azioni: pannelli 320 ms, spunta 260 ms, evidenziazione 1,5 s. Unica eccezione il punto pulsante del realtime.
+- Movimento solo in risposta alle azioni: pannelli 320 ms, spunta 260 ms, evidenziazione 1,5 s.
 
 ## Testi dell'interfaccia
 
@@ -314,8 +313,8 @@ Frasi brevi, iniziale maiuscola e il resto minuscolo, niente punti esclamativi; 
 | Home, riepilogo | {n} cose da prendere in {m} liste (al singolare: 1 cosa, 1 lista) |
 | Home, tutto preso | Avete preso tutto, per ora. |
 | Home, nessuna lista | Nessuna spesa in programma. |
-| Home, vuota | Crea una lista per la prossima spesa: {nome} la vede subito. |
-| Card notifiche, titolo | Sappi subito cosa manca |
+| Home, vuota | Crea una lista per la prossima spesa |
+| Card notifiche, titolo | Scopri subito cosa manca |
 | Card notifiche, testo | Ricevi una notifica quando {nome} aggiunge qualcosa, anche con l'app chiusa. |
 | Card notifiche, pulsante | Attiva notifiche |
 | Lista vuota | La lista è vuota. Scrivi qui sotto la prima cosa da prendere. |

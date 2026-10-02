@@ -1,7 +1,6 @@
 ---
 import Icon from '../components/Icon.astro';
 import ItemRow from '../components/ItemRow.astro';
-import LiveIndicator from '../components/LiveIndicator.astro';
 import OfflineBanner from '../components/OfflineBanner.astro';
 import Page from '../components/Page.astro';
 import Sheet from '../components/Sheet.astro';
@@ -12,7 +11,6 @@ import Toast from '../components/Toast.astro';
   <div class="app" x-data="listPage" x-cloak>
     <header class="top">
       <button type="button" class="icon-btn" aria-label="Torna alle liste" @click="back()"><Icon name="back" /></button>
-      <LiveIndicator />
       <button type="button" class="icon-btn" aria-label="Altre azioni sulla lista" @click="openMenu()"><Icon name="more" /></button>
     </header>
 

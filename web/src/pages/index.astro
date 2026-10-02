@@ -2,7 +2,6 @@
 import Avatar from '../components/Avatar.astro';
 import Icon from '../components/Icon.astro';
 import ListRow from '../components/ListRow.astro';
-import LiveIndicator from '../components/LiveIndicator.astro';
 import OfflineBanner from '../components/OfflineBanner.astro';
 import Page from '../components/Page.astro';
 import Sheet from '../components/Sheet.astro';
@@ -14,7 +13,6 @@ import Toast from '../components/Toast.astro';
     <header class="top">
       <div class="brand"><span class="brand-mark"><Icon name="basket" /></span><span>Spesa</span></div>
       <div class="top-actions">
-        <LiveIndicator />
         <button type="button" class="av-btn" aria-label="Profilo" @click="openProfile()">
           <Avatar user="$store.session.me?.id" size="md" />
         </button>
@@ -32,7 +30,7 @@ import Toast from '../components/Toast.astro';
       <aside class="notif-card" x-show="$store.session.notifications === 'off'">
         <span class="notif-ico"><Icon name="bell" /></span>
         <div>
-          <b>Sappi subito cosa manca</b>
+          <b>Scopri subito cosa manca</b>
           <p x-text="`Ricevi una notifica quando ${partnerName} aggiunge qualcosa, anche con l'app chiusa.`"></p>
         </div>
         <button type="button" class="btn small" :disabled="!$store.session.online" @click="enableNotifications()">Attiva notifiche</button>
@@ -48,7 +46,7 @@ import Toast from '../components/Toast.astro';
           </section>
         </template>
         <template x-if="!groups.upcoming.length">
-          <div class="empty"><p x-text="`Crea una lista per la prossima spesa: ${partnerName} la vede subito.`"></p></div>
+          <div class="empty"><p>Crea una lista per la prossima spesa</p></div>
         </template>
 
         <section class="past" x-show="groups.past.length">
@@ -104,7 +102,6 @@ import Toast from '../components/Toast.astro';
       <div class="setting" x-show="$store.session.notifications !== 'unsupported'">
         <div>
           <b>Notifiche</b>
-          <span x-text="`Quando ${partnerName} aggiunge qualcosa`"></span>
         </div>
         <button
           type="button"

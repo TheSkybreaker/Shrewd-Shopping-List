@@ -9,7 +9,6 @@ const TOAST_MS = 2800;
 export interface SessionStore {
   me: User | null;
   users: Record<string, User>;
-  live: boolean;
   online: boolean;
   installable: boolean;
   notifications: NotificationState;
@@ -78,7 +77,6 @@ function sessionStore(): SessionStore {
   return {
     me: pb.authStore.record as User | null,
     users: {},
-    live: false,
     online: navigator.onLine,
     installable: false,
     notifications: initialNotificationState(),
