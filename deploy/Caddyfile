@@ -1,0 +1,9 @@
+# Reverse proxy with automatic HTTPS, which the service worker and Web Push require. The defaults
+# already stream the server-sent events of the realtime connection.
+#
+# SPESA_DOMAIN comes from Caddy's environment, for example with `systemctl edit caddy`:
+#   [Service]
+#   Environment=SPESA_DOMAIN=spesa.example.com
+{$SPESA_DOMAIN} {
+	reverse_proxy 127.0.0.1:8090
+}

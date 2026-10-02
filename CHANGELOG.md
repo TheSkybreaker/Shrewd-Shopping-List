@@ -1,5 +1,10 @@
 # Changelog
 
+## Milestone 5: deploy
+
+- `go build -tags embed` compiles the frontend into the binary; without the tag, development keeps reading `pb_public` from disk.
+- `deploy/`: Caddyfile with the domain from `SPESA_DOMAIN`, the hardened `spesa.service`, and `backup.sh` with its daily timer copying the newest PocketBase backup to `BACKUP_DESTINATION`.
+
 ## Milestone 4: push notifications
 
 - Web Push from the items hook to the other person's devices (TTL 12 h, high urgency, list id as topic), subscriptions dropped on 404 and 410, and the `/api/push` routes, tested with a fake push service.

@@ -336,6 +336,8 @@ In sviluppo bastano un PC e un telefono via USB; in produzione un VPS con HTTPS.
 | VAPID_PRIVATE_KEY | generata | Segreta, mai nel repository |
 | VAPID_SUBJECT | mailto:indirizzo di contatto | Richiesta dai push service |
 | DEV | 1 | Abilita `/api/push/test` e l'automigrate |
+| SPESA_DOMAIN | dominio di produzione | Solo nell'ambiente di Caddy, per il `Caddyfile` |
+| BACKUP_DESTINATION | destinazione rsync | Solo sul VPS, per `deploy/backup.sh` |
 
 Il comando `vapid` stampa una coppia di chiavi con `webpush.GenerateVAPIDKeys()`. In locale le variabili stanno in un `.env` ignorato da git.
 
@@ -348,10 +350,10 @@ Il comando `vapid` stampa una coppia di chiavi con `webpush.GenerateVAPIDKeys()`
 
 ### Produzione
 
-1. `pnpm build` in `web/` scrive in `backend/pb_public`, poi `go build` produce un unico binario.
-2. Sul VPS binario e `pb_data` stanno in `/opt/spesa`, con il servizio systemd `spesa.service` in ascolto su `127.0.0.1:8090`.
-3. Caddy fa da reverse proxy con HTTPS automatico. Le impostazioni predefinite vanno bene per le connessioni SSE del realtime.
-4. Backup: i backup automatici di PocketBase, pianificati dalla dashboard, più una copia giornaliera fuori dal server.
+1. `pnpm build` in `web/` scrive in `backend/pb_public`, poi `go build -tags embed` produce un unico binario con il frontend incorporato. Senza il tag il binario legge `pb_public` dal disco, come in sviluppo.
+2. Sul VPS binario, `.env` e `pb_data` stanno in `/opt/spesa`, con il servizio systemd `deploy/spesa.service` in ascolto su `127.0.0.1:8090`.
+3. Caddy fa da reverse proxy con HTTPS automatico (`deploy/Caddyfile`, dominio in `SPESA_DOMAIN`). Le impostazioni predefinite vanno bene per le connessioni SSE del realtime.
+4. Backup: i backup automatici di PocketBase, pianificati dalla dashboard, più una copia giornaliera fuori dal server con `deploy/backup.sh`, avviato da `spesa-backup.timer` alle 4:30.
 
 ## Milestone e criteri di accettazione
 
@@ -389,7 +391,7 @@ Cinque milestone in sequenza; ognuna è finita quando tutte le sue caselle sono 
 
 ### 5. Deploy
 
-- [ ] Caddyfile, `spesa.service` e script di backup in `deploy/`
+- [x] Caddyfile, `spesa.service` e script di backup in `deploy/`
 - [ ] App installata su entrambi i telefoni dal dominio di produzione, giro completo di prova
 
 ## Fuori perimetro e decisioni aperte

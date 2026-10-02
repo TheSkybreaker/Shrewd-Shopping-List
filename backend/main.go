@@ -8,7 +8,6 @@ import (
 	"mime"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/SherClockHolmes/webpush-go"
@@ -17,7 +16,6 @@ import (
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/plugins/migratecmd"
-	"github.com/pocketbase/pocketbase/tools/osutils"
 	"github.com/spf13/cobra"
 
 	_ "spesa/migrations"
@@ -93,7 +91,7 @@ func main() {
 			return fmt.Errorf("missing environment variables: %s (generate the keys with `go run . vapid`)", strings.Join(missing, ", "))
 		}
 
-		se.Router.GET("/{path...}", serveStatic(os.DirFS(publicDir())))
+		se.Router.GET("/{path...}", serveStatic(publicFiles()))
 		return se.Next()
 	})
 
@@ -102,14 +100,6 @@ func main() {
 	if err := app.Start(); err != nil {
 		log.Fatal(err)
 	}
-}
-
-// publicDir is where the Astro build lands: next to the binary, or in the working directory under `go run`.
-func publicDir() string {
-	if osutils.IsProbablyGoRun() {
-		return "./pb_public"
-	}
-	return filepath.Join(os.Args[0], "../pb_public")
 }
 
 // serveStatic serves the Astro build. apis.Static redirects a directory path to its trailing

@@ -1,0 +1,26 @@
+# /etc/systemd/system/spesa.service
+# The binary is built with `go build -tags embed`, so it carries the frontend.
+[Unit]
+Description=Spesa (PocketBase)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=spesa
+Group=spesa
+WorkingDirectory=/opt/spesa
+# VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT and BACKUP_DESTINATION; readable by spesa only.
+EnvironmentFile=/opt/spesa/.env
+ExecStart=/opt/spesa/spesa serve --http 127.0.0.1:8090 --dir /opt/spesa/pb_data
+Restart=on-failure
+RestartSec=5
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/opt/spesa/pb_data
+
+[Install]
+WantedBy=multi-user.target
