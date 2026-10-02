@@ -1,0 +1,402 @@
+# Spesa, design doc per Claude Code
+
+2026-10-02 · Vittorio · [documento originale](https://claude.ai/artifact/Bos713kpsnZ97WjQc5k4UJ)
+
+## Obiettivo e perimetro
+
+Spesa è una PWA mobile first per una lista della spesa condivisa tra due persone (Vittorio e la sua ragazza), su due telefoni Android. Ogni lista è legata a un giorno, contiene elementi da spuntare e avvisa l'altra persona con una notifica quando qualcuno aggiunge qualcosa.
+
+Obiettivi della v1:
+
+- Login con email e password, sessione che dura mesi.
+- Liste per data con titolo facoltativo, divise in In programma e Passate.
+- Elementi con quantità facoltativa, spunta, eliminazione con annulla.
+- Aggiornamenti in tempo reale tra i due telefoni ad app aperta.
+- Notifiche push di sistema ad app chiusa, solo per le aggiunte fatte dall'altra persona.
+- Installabile da Chrome su Android, interfaccia azzurra, tema chiaro e scuro.
+
+Non obiettivi della v1: registrazione pubblica, più nuclei familiari, iOS, modifiche offline con coda di sincronizzazione, categorie o reparti.
+
+Riferimento visivo: la demo HTML si trova in `docs/demo.html`, scaricata dalla [demo pubblicata](https://claude.ai/artifact/BWm5yGRPudtpV1iUU8spvf). Per aspetto e comportamenti dell'interfaccia vale come fonte di verità.
+
+## Come lavorare
+
+Procedi per milestone, nell'ordine della sezione Milestone e criteri di accettazione, e fermati alla fine di ognuna per una revisione.
+
+- Prima di scrivere codice PocketBase, leggi la documentazione della versione stabile corrente e fissala in `go.mod`. Hook e route sono cambiati dalla v0.23: non fidarti di esempi più vecchi.
+- Lo schema delle collezioni vive nelle migrazioni Go, non solo nella dashboard.
+- Niente Tailwind né librerie di componenti: CSS semplice con le custom properties della sezione Design system.
+- Testi dell'interfaccia in italiano, come nella sezione Testi dell'interfaccia. Codice, nomi di file, commenti e commit in inglese.
+- Se un dettaglio non è coperto qui, segui la demo. Se non lo copre neanche la demo, chiedi invece di inventare.
+- Alla fine di ogni milestone spunta le sue caselle in `docs/DESIGN.md` e aggiungi due righe a `CHANGELOG.md`.
+
+## Stack e architettura
+
+Un solo binario Go serve API e frontend statico sullo stesso dominio: niente CORS e un solo deploy.
+
+| Livello | Scelta | Note |
+|---|---|---|
+| Backend | PocketBase usato come framework Go | Auth, SQLite, realtime, dashboard admin |
+| Push | `github.com/SherClockHolmes/webpush-go` | Cifratura del payload e firma VAPID, che gli hook JS non sanno fare |
+| Frontend | Astro in output statico | Build dentro `backend/pb_public` |
+| Interattività | Alpine.js con l'integrazione @astrojs/alpinejs | Caricato su ogni pagina; stato in Alpine.store, logica in Alpine.data |
+| Client API | SDK JS `pocketbase` | Auth store in localStorage, realtime via SSE |
+| PWA | `@vite-pwa/astro` con strategia `injectManifest` | Service worker scritto a mano per push e click |
+| Font | Pacchetti Fontsource, self-hosted | Funzionano offline, niente Google Fonts a runtime |
+| Hosting | Piccolo VPS, Caddy davanti, systemd | HTTPS obbligatorio per service worker e push |
+
+Flusso di un'aggiunta: il telefono A crea un record in `items`. PocketBase lo salva, lo manda in realtime ai client connessi e lancia l'hook Go. L'hook invia una Web Push alle subscription del telefono B, Chrome la consegna al service worker di B, che mostra la notifica oppure la salta se l'app è in primo piano.
+
+_Il diagramma dell'architettura e del flusso di un'aggiunta è nel documento originale._
+
+Ad app aperta l'aggiornamento arriva subito via SSE; la push passa dal push service e serve solo ad app chiusa.
+
+### Alpine in pratica
+
+- Integrazione `@astrojs/alpinejs` con `entrypoint` su `src/lib/alpine.ts`, dove si registrano plugin, store e componenti prima dell'avvio.
+- Stato condiviso in `Alpine.store`: `session` (utente, permesso notifiche, connessione), `lists` e `items`. Realtime e chiamate API aggiornano solo gli store; le pagine leggono da lì.
+- La logica dei componenti sta in `Alpine.data('homePage')`, `Alpine.data('listPage')` e `Alpine.data('composer')`, in file TypeScript. Nelle pagine `.astro` restano solo direttive brevi.
+- Liste con `<template x-for>` e `:key` sull'id del record, così gli eventi realtime non ricreano tutte le righe.
+- Plugin ufficiali: `@alpinejs/focus` per tenere il focus nei pannelli dal basso (`x-trap`), `@alpinejs/collapse` per il gruppo Passate.
+- Parser, date e raggruppamenti restano funzioni pure in `lib/`, testate con Vitest senza Alpine.
+
+## Struttura del repository
+
+Monorepo con backend Go e frontend Astro separati; la build del frontend finisce dentro il backend.
+
+```text
+spesa/
+  backend/
+    main.go            avvio PocketBase, hook, route, comando vapid
+    push.go            invio Web Push, pulizia subscription
+    routes.go          /api/push/*
+    migrations/        schema delle collezioni
+    pb_public/         output della build Astro (non versionato)
+    pb_data/           database e file (non versionato)
+  web/
+    astro.config.mjs   outDir: ../backend/pb_public
+    src/
+      pages/           index.astro, login.astro, lista.astro
+      components/      componenti .astro con direttive Alpine
+      lib/             alpine.ts, pb.ts, auth.ts, dates.ts, parse.ts, push.ts, realtime.ts
+      styles/          tokens.css, base.css
+      sw.ts            service worker
+    public/icons/      icone app e badge notifiche
+  deploy/              Caddyfile, spesa.service, script di backup
+  docs/                DESIGN.md (questo documento), demo.html
+```
+
+Il dettaglio di una lista è `/lista?id=<id>`, non `/lista/<id>`: in output statico Astro non può generare pagine per id che non conosce. Verifica che PocketBase serva `lista/index.html` per `/lista`.
+
+## Modello dati e regole API
+
+Quattro collezioni. La data delle liste è testo `YYYY-MM-DD`, così un giorno resta quel giorno senza slittamenti di fuso orario. Nelle regole, "bloccata" significa regola null: solo i superuser.
+
+### users (auth, già presente)
+
+| Campo | Tipo | Note |
+|---|---|---|
+| name | text, obbligatorio, max 20 | Nome mostrato nell'app |
+| color | select: `sky`, `sun` | Colore dell'avatar, uno per persona |
+| avatar | file, facoltativo | Non usato nella v1: l'avatar è l'iniziale |
+
+- List e view: `@request.auth.id != ""` (serve per mostrare il nome dell'altra persona).
+- Update: `id = @request.auth.id`. Create e delete: bloccate.
+- Durata del token auth: 90 giorni.
+
+### lists
+
+| Campo | Tipo | Note |
+|---|---|---|
+| date | text, obbligatorio, pattern `^\d{4}-\d{2}-\d{2}$` | Giorno della spesa, data locale; indice |
+| title | text, obbligatorio, max 40 | Spesa se lasciato vuoto |
+| created_by | relation a users, obbligatorio |  |
+| created, updated | autodate |  |
+
+- List, view, update, delete: `@request.auth.id != ""`.
+- Create: `@request.auth.id != "" && @request.body.created_by = @request.auth.id`.
+
+### items
+
+| Campo | Tipo | Note |
+|---|---|---|
+| list | relation a lists, obbligatorio, cascade delete | Indice |
+| name | text, obbligatorio, max 60 |  |
+| qty | text, max 20 | 2, 500 g oppure vuoto |
+| checked | bool |  |
+| checked_at | date | Ordina la sezione Nel carrello |
+| added_by | relation a users, obbligatorio |  |
+| checked_by | relation a users | Vuoto quando non è spuntato |
+| created, updated | autodate |  |
+
+- List, view, delete: `@request.auth.id != ""`.
+- Create: `@request.auth.id != "" && @request.body.added_by = @request.auth.id`.
+- Update: autenticato, `added_by` modificabile solo verso `@request.auth.id` (un doppione già nel carrello torna tra le cose da prendere a nome di chi l'ha riscritto), `checked_by` vuoto oppure uguale a `@request.auth.id`. Con la sintassi della v0.23 e successive: `@request.auth.id != "" && (@request.body.added_by:isset = false || @request.body.added_by = @request.auth.id) && (@request.body.checked_by:isset = false || @request.body.checked_by = "" || @request.body.checked_by = @request.auth.id)`. Verificala sulla versione in uso.
+
+### push_subscriptions
+
+| Campo | Tipo | Note |
+|---|---|---|
+| user | relation a users, obbligatorio, cascade delete |  |
+| endpoint | text, obbligatorio | Indice unico |
+| p256dh | text, obbligatorio |  |
+| auth | text, obbligatorio |  |
+| user_agent | text | Per riconoscere il dispositivo nei log |
+| created, updated | autodate |  |
+
+Tutte le regole bloccate: la collezione la toccano solo le route custom e l'hook.
+
+## Autenticazione e sessione
+
+Due account creati a mano dalla dashboard admin; l'app ha solo il login.
+
+- Nessuna pagina di registrazione né di reset password nella v1: le password si gestiscono dalla dashboard.
+- Login con `authWithPassword`; in caso di errore, messaggio sotto il pulsante: Email o password non corretti.
+- Lo store dell'SDK tiene il token in localStorage. All'avvio, se il token è valido, chiama `authRefresh()`; se fallisce, svuota lo store e vai a `/login`.
+- Guardie lato client: `/` e `/lista` senza sessione portano a `/login`; `/login` con sessione valida porta a `/`.
+- Esci: prima cancella la subscription push del dispositivo con `POST /api/push/unsubscribe`, poi `pb.authStore.clear()` e vai a `/login`.
+- Nel profilo ognuno può cambiare solo il proprio nome.
+
+## Realtime
+
+Il realtime allinea i due telefoni ad app aperta; le notifiche push servono solo ad app chiusa.
+
+- Home: sottoscrizione a `lists` e `items` con `subscribe('*')`. A ogni evento ricalcola righe e conteggi, con un debounce di 300 ms.
+- Dettaglio: sottoscrizione a `items` filtrata con `list = "<id>"` e al record della lista. Se l'altra persona elimina la lista, torna alla home con il toast Lista eliminata da {nome}.
+- Applica gli eventi in modo idempotente, con upsert per id: l'eco delle proprie modifiche non deve creare doppioni.
+- Modifiche ottimistiche: la UI cambia subito, poi parte la chiamata. Se fallisce, torna allo stato precedente con il toast Non salvato, riprova.
+- Indicatore nella barra in alto: punto verde con In tempo reale se la connessione SSE è attiva, punto grigio con Offline se è caduta. Usa `PB_CONNECT` e `pb.realtime.onDisconnect`.
+- Quando l'app torna in primo piano (`visibilitychange`), ricarica i dati della vista corrente.
+- Gli elementi aggiunti dall'altra persona compaiono con l'evidenziazione gialla della demo, per 1,5 secondi.
+
+## Notifiche push
+
+Web Push con chiavi VAPID, inviate dal backend Go solo all'altra persona e solo quando aggiunge un elemento. Spunte, eliminazioni e nuove liste non notificano.
+
+### Route custom
+
+Tutte richiedono un utente autenticato.
+
+| Metodo e percorso | Cosa fa |
+|---|---|
+| GET /api/push/key | Restituisce la chiave pubblica VAPID |
+| POST /api/push/subscribe | Riceve la subscription del browser, fa upsert per `endpoint` e la assegna all'utente autenticato |
+| POST /api/push/unsubscribe | Riceve `{ endpoint }` ed elimina la subscription se appartiene all'utente |
+| POST /api/push/test | Solo con `DEV=1`: manda una push di prova ai dispositivi dell'utente stesso |
+
+### Invio dal backend
+
+- Hook dopo la creazione riuscita di un record `items`. L'invio parte in una goroutine, così la risposta al client non aspetta le push.
+- Destinatari: tutte le subscription con `user` diverso da `added_by`.
+- Opzioni di `webpush-go`: TTL 12 ore, urgenza `high` (i telefoni in risparmio energetico non la ritardano), `Topic` uguale all'id della lista, subscriber da `VAPID_SUBJECT`. Con il `Topic`, il push service sostituisce i messaggi della stessa lista non ancora consegnati.
+- Risposta 404 o 410: elimina la subscription. Altri errori: solo log, nessun retry.
+
+Payload, sotto i 4 KB:
+
+```json
+{
+  "type": "item_added",
+  "listId": "abc123def456ghi",
+  "listTitle": "Spesa settimanale",
+  "listDate": "2026-10-03",
+  "item": "Pane",
+  "qty": "2",
+  "by": "Vittorio"
+}
+```
+
+### Service worker
+
+- Evento `push`: se una finestra dell'app è visibile (`clients.matchAll({ type: 'window', includeUncontrolled: true })` con `visibilityState === 'visible'`), non mostrare nulla, ci pensa il realtime. Chrome lo accetta solo se la pagina è davvero in primo piano.
+- Altrimenti cerca con `registration.getNotifications({ tag: listId })` una notifica già aperta per la stessa lista, unisci gli elementi in `data.items` e sostituiscila.
+- Un elemento: titolo {by} ha aggiunto {item}, testo {listTitle}, {data}. Più elementi: titolo {by} ha aggiunto {n} cose, testo con gli elementi separati da virgola e poi Lista: {listTitle}. La data è oggi, domani o il giorno esteso, calcolati sulla data del telefono.
+- Opzioni: `tag` uguale a listId, `renotify: true`, `icon` `/icons/icon-192.png`, `badge` `/icons/badge-96.png` (bianco su trasparente, Android usa solo il canale alpha), `vibrate: [80, 40, 80]`, azione Apri lista.
+- Evento `notificationclick`: chiude la notifica, mette a fuoco una finestra già aperta e la porta su `/lista?id=<listId>`, altrimenti ne apre una nuova.
+
+### Attivazione dal client
+
+- La card Attiva notifiche in home e lo switch nel profilo chiamano `Notification.requestPermission()` solo dopo un tap.
+- Con il permesso: `pushManager.subscribe({ userVisibleOnly: true, applicationServerKey })`, poi `POST /api/push/subscribe`.
+- A ogni avvio con permesso già concesso, rileggi la subscription e rimandala al server: copre i cambi di endpoint.
+- Permesso negato: lo switch resta spento e sotto compare Riattivale da Impostazioni Android, app Spesa, Notifiche.
+- In sviluppo, il profilo mostra un pulsante Prova notifica che usa `/api/push/test`.
+
+## PWA e service worker
+
+L'app si installa da Chrome come WebAPK, si apre anche offline in sola lettura e si aggiorna da sola.
+
+- Manifest: name e short_name Spesa, `lang` it, `start_url` e `scope` `/`, `display` standalone, `orientation` portrait, `background_color` #EAF5FC, `theme_color` #3AA6E8.
+- Icone: 192 e 512 px, più una 512 px maskable con il cestino su fondo azzurro e margine di sicurezza del 20%. Badge per le notifiche: 96 px monocromatico.
+- Precache dell'app shell (HTML, CSS, JS, font, icone) con Workbox tramite `injectManifest`. Le chiamate a `/api/*` non passano mai dalla cache.
+- Offline: l'app mostra l'ultimo stato letto, salvato in localStorage per ogni vista, con il banner Sei offline, le modifiche sono in pausa. Campo di inserimento e azioni restano disattivati finché torna la rete.
+- Nuova versione del service worker: toast Nuova versione disponibile con azione Aggiorna, che fa `skipWaiting` e ricarica.
+- Installazione: intercetta `beforeinstallprompt` e mostra Installa l'app nel profilo finché l'app non risulta installata.
+- Head: `viewport-fit=cover`, safe area gestite come nella demo, `theme-color` distinto per tema chiaro e scuro con l'attributo `media`.
+
+## Interfaccia: schermate e comportamenti
+
+Tre pagine e tre pannelli dal basso, con l'aspetto e i comportamenti della demo.
+
+| Vista | Contenuto | Azioni |
+|---|---|---|
+| Login (`/login`) | Logo, titolo Spesa grande, sottotitolo, email, password | Entra |
+| Home (`/`) | Saluto, riepilogo, card notifiche se spente, In programma (data da oggi in poi, crescente), Passate richiudibile (decrescente) | Apri lista, Nuova lista, profilo |
+| Lista (`/lista?id=`) | Pannello azzurro con giorno gigante, giorno della settimana, mese, pillola Oggi, Domani o Ieri, titolo e avanzamento; poi Da prendere e Nel carrello | Aggiungi, spunta, elimina, menu |
+| Pannello Nuova lista | Chip Oggi, Domani, Sabato (senza doppioni), selettore data, nome facoltativo | Crea lista: apre la lista con il focus sul campo |
+| Pannello Menu lista | Titolo e data della lista | Togli le cose già prese (n); Elimina la lista con secondo tocco di conferma |
+| Pannello Profilo | Avatar, nome modificabile, email, switch notifiche, Installa l'app | Esci |
+
+- Riga in home: numero del giorno grande, giorno abbreviato, titolo, data relativa o estesa, barra di avanzamento, stato (N da prendere, Fatto, Vuota) e avatar di chi ha aggiunto elementi.
+- Elemento: cerchio di spunta, nome con pillola della quantità, sotto avatar e aggiunto da te o da {nome} (preso da, se spuntato), pulsante elimina. Da prendere in ordine di creazione; Nel carrello per `checked_at` decrescente, in un contenitore solo bordato.
+- Barra di inserimento fissa in basso: fino a 7 chip di suggerimento, il campo Aggiungi, es. 2 latte e il pulsante +. Dopo l'invio il campo si svuota e tiene il focus, così la tastiera resta aperta.
+- Suggerimenti, in quest'ordine, esclusi quelli già da prendere: Latte, Pane, Uova, Acqua, Frutta, Caffè, Pasta, Insalata, Burro, Carta igienica, Pomodori, Yogurt.
+
+### Regole di inserimento
+
+| Scritto | Nome | Quantità |
+|---|---|---|
+| latte | Latte | nessuna |
+| 2 latte | Latte | 2, mostrata come ×2 |
+| 2x latte | Latte | 2 |
+| latte x2 | Latte | 2 |
+| 500 g farina | Farina | 500 g |
+| 1,5 kg patate | Patate | 1,5 kg |
+
+Unità riconosciute: g, kg, ml, l, pz. Spazi multipli compressi, prima lettera maiuscola. Il parser vive in `lib/parse.ts` con test su tutti i casi della tabella.
+
+- Doppione già da prendere (confronto senza maiuscole): niente inserimento, l'elemento esistente lampeggia, toast È già in lista.
+- Doppione già nel carrello: torna tra le cose da prendere a nome di chi l'ha riscritto, toast Rimesso tra le cose da prendere.
+- Spunta: animazione di 260 ms sul cerchio, poi l'elemento cambia sezione.
+- Eliminazioni (elemento, cose prese, lista): la UI toglie subito e la chiamata API parte quando scade il toast con Annulla, dopo 5 secondi. Annulla ripristina senza chiamate.
+- Oggi è il giorno locale del telefono. Le etichette Oggi, Domani e Ieri valgono anche per le righe in home.
+
+## Design system
+
+Azzurro come colore principale, giallo solo per la seconda persona e per evidenziare le novità; il numero gigante del giorno è l'unico elemento audace. I token vanno in `styles/tokens.css` come custom properties su `:root`, con il tema scuro sotto `prefers-color-scheme` e gli override `:root[data-theme]`.
+
+| Token | Chiaro | Scuro | Uso |
+|---|---|---|---|
+| --bg | #EAF5FC | #071622 | Sfondo pagina |
+| --paper | #FFFFFF | #0E2233 | Superfici e pannelli dal basso |
+| --ink | #0E3550 | #E3F2FC | Testo |
+| --ink-2 | #4F7189 | #8FB0C6 | Testo secondario |
+| --line | #D5E7F3 | #1D3B52 | Divisori e bordi |
+| --panel | #3AA6E8 | #2F95D4 | Pannello della lista, icona app |
+| --panel-ink | #06283F | #04192A | Testo sul pannello |
+| --accent | #2A93D6 | #3AA6E8 | Spunte e barre |
+| --accent-text | #1673B8 | #7FCBF7 | Testo azzurro e focus |
+| --accent-soft | #DBEFFC | #12324A | Fondi tenui |
+| --btn | #1677C9 | #3AA6E8 | Pulsanti primari, avatar persona sky |
+| --btn-ink | #FFFFFF | #04192A | Testo sui pulsanti |
+| --sun | #F7B500 | #F7C23A | Avatar persona sun |
+| --sun-soft | #FFF0C2 | #3A3010 | Evidenziazione delle novità |
+| --sun-ink | #3D2C00 | #2B1F00 | Testo sull'avatar giallo |
+| --danger | #C23B34 | #FF8A80 | Eliminazione |
+
+- Tipografia: Bricolage Grotesque 600 e 800 per titoli, numeri dei giorni e avatar; Atkinson Hyperlegible 400 e 700 per tutto il resto. Base 17 px, nomi degli elementi 18 px, numero del pannello `clamp(100px, 32vw, 136px)` con interlinea 0.76.
+- Misure: colonna larga al massimo 480 px con margini di 18 px. Raggi: 28 pannelli, 22 gruppi, 18 campo e pulsante +, 15 pulsanti, pillole tonde. Target di tocco minimo 44 px; campo e pulsante + alti 56 px, Nuova lista 58 px.
+- Accessibilità: focus visibile da 3 px in `--accent-text`, `aria-pressed` sugli elementi, campi con testo da almeno 16 px, `prefers-reduced-motion` che azzera le animazioni, testo con contrasto almeno 4,5:1.
+- Movimento solo in risposta alle azioni: pannelli 320 ms, spunta 260 ms, evidenziazione 1,5 s. Unica eccezione il punto pulsante del realtime.
+
+## Testi dell'interfaccia
+
+Frasi brevi, iniziale maiuscola e il resto minuscolo, niente punti esclamativi; quando si parla della coppia si usa avete. I segnaposto tra graffe sono valori dinamici.
+
+| Dove | Testo |
+|---|---|
+| Login, sottotitolo | La lista della spesa di casa, aggiornata in tempo reale su tutti e due i telefoni. |
+| Login, errore | Email o password non corretti. |
+| Home, saluto | Ciao {nome} |
+| Home, riepilogo | {n} cose da prendere in {m} liste (al singolare: 1 cosa, 1 lista) |
+| Home, tutto preso | Avete preso tutto, per ora. |
+| Home, nessuna lista | Nessuna spesa in programma. |
+| Home, vuota | Crea una lista per la prossima spesa: {nome} la vede subito. |
+| Card notifiche, titolo | Sappi subito cosa manca |
+| Card notifiche, testo | Ricevi una notifica quando {nome} aggiunge qualcosa, anche con l'app chiusa. |
+| Card notifiche, pulsante | Attiva notifiche |
+| Lista vuota | La lista è vuota. Scrivi qui sotto la prima cosa da prendere. |
+| Lista completata | Avete preso tutto. |
+| Avanzamento | {n} da prendere, {m} nel carrello / Tutto nel carrello / Ancora vuota |
+| Campo di inserimento | Aggiungi, es. 2 latte |
+| Nuova lista, nome | Es. Esselunga, cena di venerdì |
+| Toast | È già in lista / Rimesso tra le cose da prendere / {elemento} eliminato / Lista eliminata / Notifiche attivate / Non salvato, riprova |
+| Azione dei toast | Annulla |
+| Offline | Sei offline, le modifiche sono in pausa |
+| Notifiche negate | Riattivale da Impostazioni Android, app Spesa, Notifiche. |
+| Aggiornamento app | Nuova versione disponibile / Aggiorna |
+
+## Configurazione, sviluppo locale e deploy
+
+In sviluppo bastano un PC e un telefono via USB; in produzione un VPS con HTTPS.
+
+| Variabile | Esempio | Note |
+|---|---|---|
+| VAPID_PUBLIC_KEY | generata | Si crea una volta con `go run . vapid` |
+| VAPID_PRIVATE_KEY | generata | Segreta, mai nel repository |
+| VAPID_SUBJECT | mailto:indirizzo di contatto | Richiesta dai push service |
+| DEV | 1 | Abilita `/api/push/test` e l'automigrate |
+
+Il comando `vapid` stampa una coppia di chiavi con `webpush.GenerateVAPIDKeys()`. In locale le variabili stanno in un `.env` ignorato da git.
+
+### Sviluppo
+
+1. `go run . serve` avvia PocketBase su `:8090`; la dashboard è su `/_/` e lì si creano i due utenti.
+2. `npm run dev` in `web/` avvia Astro su `:4321`, con un proxy Vite da `/api` verso `:8090`: il client usa sempre lo stesso origin.
+3. `@vite-pwa/astro` con `devOptions` attivi, per avere il service worker anche in sviluppo.
+4. Telefono via USB: `chrome://inspect` sul PC con port forwarding della porta 4321. Sul telefono `localhost` è un contesto sicuro, quindi service worker e push funzionano senza HTTPS.
+
+### Produzione
+
+1. `npm run build` in `web/` scrive in `backend/pb_public`, poi `go build` produce un unico binario.
+2. Sul VPS binario e `pb_data` stanno in `/opt/spesa`, con il servizio systemd `spesa.service` in ascolto su `127.0.0.1:8090`.
+3. Caddy fa da reverse proxy con HTTPS automatico. Le impostazioni predefinite vanno bene per le connessioni SSE del realtime.
+4. Backup: i backup automatici di PocketBase, pianificati dalla dashboard, più una copia giornaliera fuori dal server.
+
+## Milestone e criteri di accettazione
+
+Cinque milestone in sequenza; ognuna è finita quando tutte le sue caselle sono spuntate e la revisione è passata.
+
+### 1. Backend
+
+- [x] Progetto Go con PocketBase, versione fissata in `go.mod`
+- [x] Migrazioni per i campi extra di `users`, per `lists`, `items` e `push_subscriptions`, con regole e indici
+- [x] Comando `vapid` e lettura delle variabili d'ambiente
+- [x] Test: un utente non autenticato non legge nulla; non si crea un item con `added_by` di un altro utente; eliminare una lista elimina i suoi item
+
+### 2. Frontend base
+
+- [ ] Astro statico con build in `pb_public`, token, font self-hosted, integrazione Alpine con gli store
+- [ ] Login, guardie delle pagine, logout
+- [ ] Home con i due gruppi, pannello Nuova lista, dettaglio con aggiunta, spunta, eliminazione e annulla
+- [ ] Parser della quantità con test unitari su tutti i casi della tabella
+- [ ] Realtime: due browser con utenti diversi si vedono a vicenda entro 1 secondo
+- [ ] Confronto visivo con `docs/demo.html` su un telefono, in tema chiaro e scuro
+
+### 3. PWA
+
+- [ ] Manifest, icone e service worker con precache
+- [ ] Installabile da Chrome su Android; offline si apre in sola lettura
+- [ ] Toast di nuova versione funzionante
+
+### 4. Notifiche push
+
+- [ ] Route `/api/push/*` e hook dopo la creazione di `items`
+- [ ] Eventi `push` e `notificationclick` nel service worker, raggruppamento per lista, niente notifica con l'app in primo piano
+- [ ] Pulizia delle subscription su 404 e 410
+- [ ] Test Go dell'invio con un sender finto: l'autore è escluso, la subscription si elimina su 410
+- [ ] Prova reale: app chiusa sul telefono B, aggiunta dal telefono A, notifica entro 5 secondi; tre aggiunte di fila diventano una sola notifica
+
+### 5. Deploy
+
+- [ ] Caddyfile, `spesa.service` e script di backup in `deploy/`
+- [ ] App installata su entrambi i telefoni dal dominio di produzione, giro completo di prova
+
+## Fuori perimetro e decisioni aperte
+
+Restano due scelte da chiudere prima di partire; il resto aspetta la v2.
+
+- [x] Interattività: Alpine.js
+- [ ] Dominio e VPS di produzione
+- [ ] Nomi mostrati e colore (sky o sun) dei due account
+
+Dopo la v1: modifiche offline con coda di sincronizzazione, notifica alla creazione di una lista, ordinamento per reparto, elementi ricorrenti. Per un eventuale telefono Jolla, dove le Web Push difficilmente funzionano, l'hook potrebbe mandare anche un POST a un topic privato di ntfy, la cui app Android funziona senza servizi Google.
